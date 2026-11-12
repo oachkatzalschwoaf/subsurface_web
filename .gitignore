@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# Real dive data never goes into this repository.
+# Tests in CI use the anonymized files in fixtures/ only.
+*.ssrf
+*.fit
+*.FIT
+*.zip
+cloud-repo/
+
+# Credentials
+.env
+.env.*

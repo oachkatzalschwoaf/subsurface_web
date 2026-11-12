@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+# Subsurface files must stay byte-identical for round-trip tests.
+fixtures/** -text
