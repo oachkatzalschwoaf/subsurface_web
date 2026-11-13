@@ -9,6 +9,7 @@ export {
   NotADiveError,
   type FitImport,
 } from './garmin/fit-import.ts';
+export { applyDrafts, newDraft, type ApplyResult, type DiveDraft, type SiteChoice, type TripChoice } from './app/drafts.ts';
 export { appendDives, commitMessageForNewDives, createSite, createTrip, listTrips } from './subsurface/edit.ts';
 export { fetchLogbook, inspect, pushLogbook, SyncError, type CommitInfo, type GitEnv, type Remote, type Snapshot } from './sync/sync.ts';
 export { toTm, type Tm } from './subsurface/units.ts';
