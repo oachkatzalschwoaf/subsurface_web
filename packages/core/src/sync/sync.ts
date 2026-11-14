@@ -43,12 +43,13 @@ export interface Snapshot {
   problems: string[];
 }
 
+export type SyncErrorKind = 'auth' | 'not-found' | 'conflict' | 'unsupported' | 'network';
+
 export class SyncError extends Error {
-  constructor(
-    readonly kind: 'auth' | 'not-found' | 'conflict' | 'unsupported' | 'network',
-    message: string,
-  ) {
+  readonly kind: SyncErrorKind;
+  constructor(kind: SyncErrorKind, message: string) {
     super(message);
+    this.kind = kind;
   }
 }
 

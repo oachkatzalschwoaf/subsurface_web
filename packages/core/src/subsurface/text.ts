@@ -118,7 +118,10 @@ export function splitKeyword(text: string): { keyword: string; rest: string } | 
 /** Hands out the strings of a line in order (pop_cstring() in core/load-git.cpp). */
 export class StringQueue {
   private next = 0;
-  constructor(private readonly strings: readonly string[]) {}
+  private readonly strings: readonly string[];
+  constructor(strings: readonly string[]) {
+    this.strings = strings;
+  }
   pop(): string {
     return this.strings[this.next++] ?? '';
   }
