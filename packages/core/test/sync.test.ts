@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import http from 'isomorphic-git/http/node';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  addHeadSymref,
   appendDives,
   createMemoryFs,
   commitMessageForNewDives,
@@ -156,5 +157,24 @@ describe('sync with a git server', () => {
     const tree = treeFromObject(sampleRepo);
     tree.set('03-Future', 'something new\n');
     expect(inspect(tree).problems).toEqual(['03-Future: unexpected entry']);
+  });
+});
+
+describe('addHeadSymref', () => {
+  const pkt = (s: string) => `${(s.length + 4).toString(16).padStart(4, '0')}${s}`;
+  const oid = 'a'.repeat(40);
+  const advert = (caps: string) =>
+    new TextEncoder().encode(`${pkt('# service=git-upload-pack\n')}0000${pkt(`${oid} refs/heads/me@x.org\u0000${caps}\n`)}0000`);
+
+  it('adds a HEAD symref when the server sent none', () => {
+    const out = new TextDecoder().decode(addHeadSymref(advert('multi_ack side-band-64k'), 'me@x.org'));
+    expect(out).toBe(
+      `${pkt('# service=git-upload-pack\n')}0000${pkt(`${oid} refs/heads/me@x.org\u0000multi_ack side-band-64k symref=HEAD:refs/heads/me@x.org\n`)}0000`,
+    );
+  });
+
+  it('leaves an advertisement with a HEAD symref alone', () => {
+    const input = advert('multi_ack symref=HEAD:refs/heads/main');
+    expect(addHeadSymref(input, 'me@x.org')).toBe(input);
   });
 });

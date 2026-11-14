@@ -42,6 +42,8 @@ export async function startGitServer(options: {
   git(work, '-c', 'user.name=Test', '-c', 'user.email=test@example.org', 'commit', '-q', '-m', 'Initial');
   git(root, 'clone', '-q', '--bare', work, repo);
   git(repo, 'config', 'http.receivepack', 'true');
+  // Like the Subsurface cloud: HEAD points nowhere, so the server advertises no HEAD.
+  git(repo, 'symbolic-ref', 'HEAD', 'refs/heads/no-such-branch');
 
   const expected = `Basic ${Buffer.from(`${options.username}:${options.password}`).toString('base64')}`;
   const server: Server = createServer((req, res) => {

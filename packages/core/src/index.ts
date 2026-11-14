@@ -12,7 +12,7 @@ export {
 export { applyDrafts, newDraft, type ApplyResult, type DiveDraft, type SiteChoice, type TripChoice } from './app/drafts.ts';
 export { appendDives, commitMessageForNewDives, createSite, createTrip, listTrips } from './subsurface/edit.ts';
 export { createMemoryFs } from './sync/memory-fs.ts';
-export { fetchLogbook, inspect, pushLogbook, SyncError, type CommitInfo, type GitEnv, type Remote, type Snapshot } from './sync/sync.ts';
+export { addHeadSymref, fetchLogbook, inspect, pushLogbook, SyncError, withHeadSymref, type CommitInfo, type GitEnv, type Remote, type Snapshot } from './sync/sync.ts';
 export { toTm, type Tm } from './subsurface/units.ts';
 export * from './subsurface/model.ts';
 export { parseLogbook, parseDiveDirectoryName, type ParseResult } from './subsurface/parse.ts';

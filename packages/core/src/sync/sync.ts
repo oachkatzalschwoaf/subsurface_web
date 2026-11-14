@@ -64,11 +64,71 @@ function classify(error: unknown): SyncError {
   return new SyncError('network', e.message ?? String(error));
 }
 
+/**
+ * The Subsurface cloud does not advertise HEAD (its repositories have no default branch), but
+ * isomorphic-git's fetch insists on one. This wraps the HTTP client and, in the ref advertisement
+ * of git-upload-pack only, adds the capability `symref=HEAD:refs/heads/<branch>` when the server
+ * sent none. Nothing else in the traffic is touched.
+ */
+export function withHeadSymref(http: HttpClient, branch: string): HttpClient {
+  return {
+    async request(request) {
+      const response = await http.request(request);
+      const isAdvertisement =
+        (request.method ?? 'GET') === 'GET' && request.url.includes('/info/refs?service=git-upload-pack') && response.statusCode === 200;
+      if (!isAdvertisement || !response.body) return response;
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of response.body) chunks.push(chunk);
+      const body = addHeadSymref(concat(chunks), branch);
+      const headers = { ...response.headers };
+      delete headers['content-length'];
+      return { ...response, headers, body: (async function* () { yield body; })() };
+    },
+  };
+}
+
+function concat(chunks: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(chunks.reduce((n, c) => n + c.byteLength, 0));
+  let pos = 0;
+  for (const c of chunks) {
+    out.set(c, pos);
+    pos += c.byteLength;
+  }
+  return out;
+}
+
+/** Rewrite the first ref line of a pkt-line advertisement. Returns the input unchanged if unsure. */
+export function addHeadSymref(body: Uint8Array, branch: string): Uint8Array {
+  const decoder = new TextDecoder('latin1');
+  const encode = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
+  let pos = 0;
+  while (pos + 4 <= body.length) {
+    const length = Number.parseInt(decoder.decode(body.subarray(pos, pos + 4)), 16);
+    if (Number.isNaN(length)) return body;
+    if (length === 0) {
+      pos += 4;
+      continue;
+    }
+    const payload = decoder.decode(body.subarray(pos + 4, pos + length));
+    if (!payload.startsWith('#')) {
+      const nul = payload.indexOf('\u0000');
+      if (nul < 0 || /(^|\s)symref=HEAD:/.test(payload.slice(nul + 1))) return body;
+      const newline = payload.endsWith('\n') ? '\n' : '';
+      const rewritten = `${payload.slice(0, payload.length - newline.length)} symref=HEAD:refs/heads/${branch}${newline}`;
+      const pkt = encode(`${(rewritten.length + 4).toString(16).padStart(4, '0')}${rewritten}`);
+      return concat([body.subarray(0, pos), pkt, body.subarray(pos + length)]);
+    }
+    pos += length;
+  }
+  return body;
+}
+
 const auth = (remote: Remote) => () => ({ username: remote.username, password: remote.password });
 
 /** Clone the remote branch (objects only) and read the logbook at its tip. */
 export async function fetchLogbook(env: GitEnv, remote: Remote): Promise<Snapshot> {
-  const { fs, http, dir } = env;
+  const { fs, dir } = env;
+  const http = withHeadSymref(env.http, remote.branch);
   try {
     await git.clone({
       fs,
