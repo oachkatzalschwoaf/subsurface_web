@@ -38,6 +38,14 @@ if ($method !== 'GET' && $method !== 'POST') {
 }
 
 $pathInfo = $_SERVER['PATH_INFO'] ?? $_SERVER['ORIG_PATH_INFO'] ?? '';
+
+// Health check used by the app to tell "proxy missing" from "server error".
+if ($pathInfo === '' && ($_SERVER['QUERY_STRING'] ?? '') === 'ping') {
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo 'topside-proxy 1';
+    exit;
+}
 if (!preg_match('#^/([^/]+)(/.*)$#', $pathInfo, $m)) {
     fail(400, 'Bad request');
 }

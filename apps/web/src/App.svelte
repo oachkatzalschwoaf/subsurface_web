@@ -12,7 +12,7 @@
     type TripChoice,
   } from '@topside/core';
   import { onMount } from 'svelte';
-  import { download, loadSettings, recallLogin, rememberLogin, saveSettings, upload, type Account } from './lib/cloud.ts';
+  import { download, loadSettings, ProxyMissingError, recallLogin, rememberLogin, saveSettings, upload, type Account } from './lib/cloud.ts';
   import { formatDate, formatDepth, formatMinutes, profilePath } from './lib/format.ts';
   import { t } from './lib/i18n.ts';
 
@@ -36,6 +36,7 @@
   const siteName = (uuid: number | null) => logbook?.sites.find((s) => s.uuid === uuid)?.name ?? '';
 
   function message(e: unknown): string {
+    if (e instanceof ProxyMissingError) return t.errorProxy;
     if (e instanceof SyncError) {
       if (e.kind === 'auth') return t.errorAuth;
       if (e.kind === 'not-found') return `${t.errorNotFound} (${e.message})`;

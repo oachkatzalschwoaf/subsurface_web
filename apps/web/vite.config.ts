@@ -16,6 +16,10 @@ function gitProxy(): Plugin {
       server.middlewares.use('/git-proxy.php', async (req, res) => {
         try {
           const url = new URL(req.url ?? '/', 'http://localhost');
+          if ((url.pathname === '/' || url.pathname === '') && url.search === '?ping') {
+            res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }).end('topside-proxy 1');
+            return;
+          }
           const [, host = '', ...rest] = url.pathname.split('/');
           const path = `/${rest.join('/')}`;
           if (!ALLOWED_HOST.test(host) || !ALLOWED_PATH.test(decodeURIComponent(path))) {

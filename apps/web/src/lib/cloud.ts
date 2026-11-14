@@ -44,7 +44,21 @@ function freshEnv(): GitEnv {
   return { fs: createMemoryFs(), http, dir: '/repo' };
 }
 
+/** Thrown when git-proxy.php is not running, e.g. the page is served without PHP. */
+export class ProxyMissingError extends Error {}
+
+/** True if git-proxy.php answers. A static file server returns a 404 page or the PHP source instead. */
+export async function proxyAvailable(): Promise<boolean> {
+  try {
+    const response = await fetch(new URL('git-proxy.php?ping', document.baseURI), { cache: 'no-store' });
+    return response.ok && (await response.text()).startsWith('topside-proxy');
+  } catch {
+    return false;
+  }
+}
+
 export async function download(account: Account): Promise<Snapshot> {
+  if (!(await proxyAvailable())) throw new ProxyMissingError();
   return fetchLogbook(freshEnv(), remoteFor(account));
 }
 
@@ -59,6 +73,7 @@ export interface UploadResult {
  * all again once on the newer state; nothing is ever overwritten.
  */
 export async function upload(account: Account, drafts: DiveDraft[], trip: TripChoice): Promise<UploadResult> {
+  if (!(await proxyAvailable())) throw new ProxyMissingError();
   const remote = remoteFor(account);
   for (let attempt = 1; ; attempt++) {
     const env = freshEnv();

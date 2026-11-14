@@ -51,6 +51,8 @@ const en = {
   errorConflict: 'The logbook changed on the server while uploading. Please try again.',
   errorUnsupported: 'Topside cannot write this logbook safely',
   errorNetwork: 'Could not reach the server',
+  errorProxy:
+    'git-proxy.php is not running. The page needs a web server with PHP (your web space) or `npm run dev`; Live Server and Five Server cannot run PHP.',
   minutes: 'min',
   maxDepth: 'max',
 };
@@ -110,6 +112,8 @@ const de: Strings = {
   errorConflict: 'Das Logbuch wurde während des Hochladens am Server geändert. Bitte noch einmal versuchen.',
   errorUnsupported: 'Topside kann dieses Logbuch nicht sicher beschreiben',
   errorNetwork: 'Server nicht erreichbar',
+  errorProxy:
+    'git-proxy.php läuft nicht. Die Seite braucht einen Webserver mit PHP (dein Webspace) oder `npm run dev`; Live Server und Five Server können kein PHP.',
   minutes: 'min',
   maxDepth: 'max',
 };
