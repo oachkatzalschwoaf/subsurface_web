@@ -2,9 +2,9 @@
  * Talks to the Subsurface cloud from the browser: a throw-away repository in IndexedDB and the
  * git proxy next to the app.
  */
-import LightningFS from '@isomorphic-git/lightning-fs';
 import {
   applyDrafts,
+  createMemoryFs,
   commitMessageForNewDives,
   fetchLogbook,
   inspect,
@@ -39,10 +39,9 @@ function remoteFor(account: Account): Remote {
   };
 }
 
-/** A fresh, empty repository each time: the logbook is small and stale state is the bigger risk. */
+/** A fresh repository in memory each time: the logbook is small and stale state is the bigger risk. */
 function freshEnv(): GitEnv {
-  const fs = new LightningFS('topside-repo', { wipe: true });
-  return { fs, http, dir: '/repo' };
+  return { fs: createMemoryFs(), http, dir: '/repo' };
 }
 
 export async function download(account: Account): Promise<Snapshot> {

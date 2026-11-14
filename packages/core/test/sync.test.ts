@@ -6,6 +6,7 @@ import http from 'isomorphic-git/http/node';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   appendDives,
+  createMemoryFs,
   commitMessageForNewDives,
   createSite,
   fetchLogbook,
@@ -68,6 +69,19 @@ describe('sync with a git server', () => {
     expect(snapshot.logbook.dives.map((d) => d.number)).toEqual([1, 2, 3]);
     expect(flattenTree(snapshot.tree)).toEqual(flattenTree(treeFromObject(sampleRepo)));
     expect(snapshot.commit).toBe(server.git('rev-parse', BRANCH).trim());
+  });
+
+  it('works the same on the in-memory file system used by the browser', async () => {
+    const memory = { fs: createMemoryFs(), http, dir: '/repo' };
+    const snapshot = await fetchLogbook(memory, remote());
+    expect(snapshot.problems).toEqual([]);
+    expect(flattenTree(snapshot.tree)).toEqual(flattenTree(treeFromObject(sampleRepo)));
+    const { logbook } = inspect(snapshot.tree);
+    logbook.dives[2]!.notes = 'edited in memory';
+    const commit = await pushLogbook(memory, remote(), snapshot, logbook, info);
+    expect(server.git('rev-parse', BRANCH).trim()).toBe(commit);
+    expect(server.git('fsck', '--strict', '--no-dangling').trim()).toBe('');
+    expect(server.git('show', `${commit}:2026/07/18-Sat-10=19=29/Dive-3`)).toContain('notes "edited in memory"');
   });
 
   it('rejects a wrong password', async () => {

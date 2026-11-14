@@ -38,7 +38,7 @@
   function message(e: unknown): string {
     if (e instanceof SyncError) {
       if (e.kind === 'auth') return t.errorAuth;
-      if (e.kind === 'not-found') return t.errorNotFound;
+      if (e.kind === 'not-found') return `${t.errorNotFound} (${e.message})`;
       if (e.kind === 'conflict') return t.errorConflict;
       if (e.kind === 'unsupported') return `${t.errorUnsupported}: ${e.message}`;
       return `${t.errorNetwork}: ${e.message}`;

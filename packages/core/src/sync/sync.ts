@@ -55,10 +55,11 @@ export class SyncError extends Error {
 
 function classify(error: unknown): SyncError {
   if (error instanceof SyncError) return error;
-  const e = error as { code?: string; data?: { statusCode?: number }; message?: string };
+  const e = error as { code?: string; data?: { statusCode?: number; statusMessage?: string }; message?: string };
   const status = e.data?.statusCode;
   if (status === 401 || status === 403) return new SyncError('auth', 'Wrong e-mail or password');
-  if (status === 404 || e.code === 'NotFoundError') return new SyncError('not-found', 'Logbook not found on the server');
+  if (status === 404) return new SyncError('not-found', `HTTP 404 ${e.data?.statusMessage ?? ''}`.trim());
+  if (e.code === 'NotFoundError') return new SyncError('not-found', e.message ?? 'NotFoundError');
   if (e.code === 'PushRejectedError') return new SyncError('conflict', 'The logbook changed on the server in the meantime');
   return new SyncError('network', e.message ?? String(error));
 }

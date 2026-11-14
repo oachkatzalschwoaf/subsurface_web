@@ -1,0 +1,19 @@
+# Topside: settings for Apache shared hosting. Put this next to index.html and git-proxy.php.
+
+# Always use HTTPS: the app sends your Subsurface password to git-proxy.php.
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# PHP behind CGI/FastCGI does not see the Authorization header unless it is passed on.
+SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+
+# git-proxy.php is called as git-proxy.php/<host>/<path>.
+AcceptPathInfo On
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "no-referrer"
+  Header always set X-Frame-Options "DENY"
+  Header always set Content-Security-Policy "default-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+</IfModule>
