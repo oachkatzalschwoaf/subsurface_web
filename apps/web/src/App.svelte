@@ -15,6 +15,21 @@
   import { download, loadSettings, ProxyMissingError, recallLogin, rememberLogin, saveSettings, upload, type Account } from './lib/cloud.ts';
   import { formatDate, formatDepth, formatMinutes, profilePath } from './lib/format.ts';
   import { t } from './lib/i18n.ts';
+  import { APP_NAME } from './lib/brand.ts';
+  import DiveDetail from './components/DiveDetail.svelte';
+  import DiveList from './components/DiveList.svelte';
+  import ShareCard from './components/ShareCard.svelte';
+  import type { Dive } from '@topside/core';
+
+  // Hash routes, so the phone's back button works: #/ list, #/upload, #/dive/<when>, #/share/<when>
+  let route = $state(location.hash || '#/');
+  const go = (hash: string) => (location.hash = hash);
+  const routeDive = (prefix: string) =>
+    route.startsWith(prefix) ? (snapshot?.logbook.dives.find((d) => String(d.when) === route.slice(prefix.length)) ?? null) : null;
+  const detailDive = $derived(routeDive('#/dive/'));
+  const shareDive = $derived(routeDive('#/share/'));
+  const onUploadPage = $derived(route === '#/upload');
+  const openDive = (dive: Dive) => go(`#/dive/${dive.when}`);
 
   const settings = loadSettings();
   let account = $state<Account>({ server: settings.server, email: settings.email, password: '' });
@@ -68,9 +83,11 @@
     rejected = [];
     success = '';
     navigator.credentials?.preventSilentAccess?.();
+    go('#/');
   }
 
   onMount(async () => {
+    window.addEventListener('hashchange', () => (route = location.hash || '#/'));
     const login = await recallLogin();
     if (login && !snapshot) {
       account.email = login.email;
@@ -160,9 +177,15 @@
 </script>
 
 <header>
-  <h1>Topside</h1>
+  <h1>{APP_NAME}</h1>
   {#if snapshot}<button class="link" onclick={signOut}>{t.signOut}</button>{/if}
 </header>
+{#if snapshot}
+  <nav class="tabs">
+    <a href="#/" class:active={!onUploadPage}>{t.navLog}</a>
+    <a href="#/upload" class:active={onUploadPage}>{t.navUpload}</a>
+  </nav>
+{/if}
 
 <main>
   {#if !snapshot}
@@ -191,6 +214,19 @@
       </details>
       <button class="primary" disabled={busy !== ''}>{busy === 'login' ? t.signingIn : t.signIn}</button>
     </form>
+  {:else if logbook && shareDive}
+    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
+    <h2>{t.shareTitle}</h2>
+    <ShareCard {logbook} dive={shareDive} />
+  {:else if logbook && detailDive}
+    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
+    <DiveDetail {logbook} dive={detailDive} onShare={() => go(`#/share/${detailDive.when}`)} />
+  {:else if logbook && !onUploadPage}
+    <section class="card summary">
+      <strong>{t.logbook(logbook.dives.length)}</strong>
+      <button class="link" disabled={busy !== ''} onclick={() => signIn(false)}>{busy === 'login' ? t.signingIn : t.refresh}</button>
+    </section>
+    <DiveList {logbook} onOpen={openDive} />
   {:else if logbook}
     <section class="card summary">
       <strong>{t.logbook(logbook.dives.length)}</strong>
