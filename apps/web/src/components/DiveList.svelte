@@ -1,6 +1,6 @@
 <script lang="ts">
   import { toTm, type Dive, type Logbook, type Trip } from '@topside/core';
-  import { formatDate, formatDepth, formatMinutes, profilePath } from '../lib/format.ts';
+  import { formatDate, formatDateRange, formatDepth, formatMinutes, profilePath } from '../lib/format.ts';
   import { t } from '../lib/i18n.ts';
 
   let { logbook, pending, onOpen }: { logbook: Logbook; pending?: Set<Dive> | undefined; onOpen: (dive: Dive) => void } = $props();
@@ -37,7 +37,10 @@
 {#each groups as group, i (group.key)}
   <details class="group" open={i < 2}>
     <summary>
-      <span>{group.label}</span>
+      <span class="title">
+        <span>{group.label}</span>
+        <small>{formatDateRange(group.dives.at(-1)!.when, group.dives[0]!.when)}</small>
+      </span>
       <span class="count">{group.dives.length}</span>
     </summary>
     <ul>
@@ -75,9 +78,19 @@
   summary {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 12px;
     padding: 12px 14px;
     font-weight: 700;
     cursor: pointer;
+  }
+  .title {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .title small {
+    font-weight: 500;
   }
   .count {
     color: var(--muted);
