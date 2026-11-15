@@ -78,7 +78,7 @@
   async function sync() {
     await run(async () => {
       const r = await workspace.sync();
-      return r.added.length ? t.uploaded(r.added.length) : t.refreshed;
+      return r.added.length ? t.uploaded(r.added.length, workspace.source?.kind === 'cloud') : t.refreshed;
     });
   }
 
@@ -91,7 +91,7 @@
       if (!online) return t.savedOffline(drafts.length);
       try {
         const synced = await workspace.sync();
-        return t.uploaded(synced.added.length) + (synced.skipped ? ` ${t.skipped(synced.skipped)}` : '');
+        return t.uploaded(synced.added.length, workspace.source?.kind === 'cloud') + (synced.skipped ? ` ${t.skipped(synced.skipped)}` : '');
       } catch (e) {
         return `${t.savedOffline(drafts.length)} ${message(e)}`;
       }

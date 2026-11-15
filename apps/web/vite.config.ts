@@ -11,6 +11,11 @@ const EXTRA_HOSTS = (process.env.TOPSIDE_PROXY_HOSTS ?? 'github.com,gitlab.com,c
   .split(',')
   .map((h) => h.trim().toLowerCase())
   .filter(Boolean);
+/** Tests only: local git servers reached over plain http, e.g. "127.0.0.1:51234". */
+const HTTP_HOSTS = (process.env.TOPSIDE_PROXY_HTTP_HOSTS ?? '')
+  .split(',')
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
 
 /**
  * Development stand-in for public/git-proxy.php: forwards git smart-HTTP requests from
@@ -30,7 +35,8 @@ function gitProxy(): Plugin {
           const [, host = '', ...rest] = url.pathname.split('/');
           const path = `/${rest.join('/')}`;
           const isCloud = ALLOWED_HOST.test(host);
-          if (!isCloud && !EXTRA_HOSTS.includes(host.toLowerCase())) {
+          const plainHttp = HTTP_HOSTS.includes(host.toLowerCase());
+          if (!isCloud && !plainHttp && !EXTRA_HOSTS.includes(host.toLowerCase())) {
             res.writeHead(421).end('Host not allowed by git-proxy.php');
             return;
           }
@@ -46,7 +52,7 @@ function gitProxy(): Plugin {
             const value = req.headers[name];
             if (typeof value === 'string') headers[name] = value;
           }
-          const upstream = await fetch(`https://${host}${path}${url.search}`, {
+          const upstream = await fetch(`${plainHttp ? 'http' : 'https'}://${host}${path}${url.search}`, {
             method: req.method ?? 'GET',
             headers,
             ...(req.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),

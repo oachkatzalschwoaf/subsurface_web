@@ -43,7 +43,8 @@ const en = {
   visibility: 'Visibility',
   upload: (n: number) => `Upload ${n} ${n === 1 ? 'dive' : 'dives'}`,
   uploading: 'Uploading…',
-  uploaded: (n: number) => `${n} ${n === 1 ? 'dive' : 'dives'} uploaded. Open Subsurface and sync to see ${n === 1 ? 'it' : 'them'}.`,
+  uploaded: (n: number, cloud = true) =>
+    `${n} ${n === 1 ? 'dive' : 'dives'} uploaded.${cloud ? ` Open Subsurface and sync to see ${n === 1 ? 'it' : 'them'}.` : ''}`,
   nothingNew: 'All of these dives are already in the logbook.',
   skipped: (n: number) => `${n} skipped: already in the logbook.`,
   errorAuth: 'Wrong e-mail or password.',
@@ -227,7 +228,8 @@ const de: Strings = {
   visibility: 'Sicht',
   upload: (n) => `${n} ${n === 1 ? 'Tauchgang' : 'Tauchgänge'} hochladen`,
   uploading: 'Wird hochgeladen…',
-  uploaded: (n) => `${n} ${n === 1 ? 'Tauchgang' : 'Tauchgänge'} hochgeladen. In Subsurface synchronisieren, dann ${n === 1 ? 'ist er' : 'sind sie'} da.`,
+  uploaded: (n, cloud = true) =>
+    `${n} ${n === 1 ? 'Tauchgang' : 'Tauchgänge'} hochgeladen.${cloud ? ` In Subsurface synchronisieren, dann ${n === 1 ? 'ist er' : 'sind sie'} da.` : ''}`,
   nothingNew: 'Alle diese Tauchgänge sind schon im Logbuch.',
   skipped: (n) => `${n} übersprungen: schon im Logbuch.`,
   errorAuth: 'E-Mail oder Passwort falsch.',
