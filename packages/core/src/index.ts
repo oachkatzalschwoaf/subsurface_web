@@ -25,3 +25,4 @@ export {
   tripDirectoryName,
 } from './subsurface/serialize.ts';
 export { flattenTree, isTree, type GitNode, type GitTree } from './subsurface/tree.ts';
+export { parseXml, serializeXml, type XmlExportOptions } from './subsurface/xml.ts';
