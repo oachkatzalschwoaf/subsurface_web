@@ -18,8 +18,10 @@ cloud-repo/
 # Defaults without secrets
 !apps/web/.env
 
-# Server-specific proxy settings
+# Server-specific proxy settings (Vite copies public/ into dist/, so ignore both)
 apps/web/public/git-proxy.config.php
+apps/web/dist/git-proxy.config.php
 
 # Instance-specific legal notice (template: legal.example.html)
 apps/web/public/legal.html
+apps/web/dist/legal.html
