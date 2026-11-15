@@ -91,6 +91,16 @@
     return all.length ? all[nearest(all, time)]!.depth : 0;
   }
 
+  /**
+   * Touch: the values show while the finger is on the chart (drag to scrub) and disappear on
+   * release, so the whole profile is visible again. Mouse: they follow the pointer.
+   */
+  let touching = false;
+  function endTouch() {
+    touching = false;
+    hover = null;
+  }
+
   function onPointer(e: PointerEvent) {
     const rect = (e.currentTarget as SVGRectElement).getBoundingClientRect();
     const s = ((e.clientX - rect.left) / rect.width) * maxT;
@@ -159,8 +169,13 @@
         width={plotW}
         height={axisY}
         role="presentation"
-        onpointermove={onPointer}
-        onpointerdown={onPointer}
+        onpointermove={(e) => (e.pointerType === 'mouse' || touching) && onPointer(e)}
+        onpointerdown={(e) => {
+          touching = e.pointerType !== 'mouse';
+          onPointer(e);
+        }}
+        onpointerup={(e) => e.pointerType !== 'mouse' && endTouch()}
+        onpointercancel={endTouch}
         onpointerleave={(e) => e.pointerType === 'mouse' && (hover = null)}
       />
     </svg>
@@ -183,6 +198,9 @@
     position: relative;
     width: 100%;
     user-select: none;
+    /* SVG children ignore touch-action; set it here so a sideways drag scrubs instead of being
+       taken over by the browser (vertical drags still scroll the page) */
+    touch-action: pan-y;
   }
   svg {
     display: block;
