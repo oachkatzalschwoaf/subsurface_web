@@ -32,15 +32,20 @@ export async function startGitServer(options: {
   const repo = join(root, 'repo.git');
   mkdirSync(work);
 
-  git(work, 'init', '-q', '-b', options.branch);
-  git(work, 'config', 'core.autocrlf', 'false');
-  for (const [path, content] of Object.entries(options.files)) {
-    mkdirSync(dirname(join(work, path)), { recursive: true });
-    writeFileSync(join(work, path), content);
+  if (Object.keys(options.files).length === 0) {
+    // An empty repository, like a freshly created one on GitHub
+    git(root, 'init', '-q', '--bare', '-b', options.branch, repo);
+  } else {
+    git(work, 'init', '-q', '-b', options.branch);
+    git(work, 'config', 'core.autocrlf', 'false');
+    for (const [path, content] of Object.entries(options.files)) {
+      mkdirSync(dirname(join(work, path)), { recursive: true });
+      writeFileSync(join(work, path), content);
+    }
+    git(work, 'add', '-A');
+    git(work, '-c', 'user.name=Test', '-c', 'user.email=test@example.org', 'commit', '-q', '-m', 'Initial');
+    git(root, 'clone', '-q', '--bare', work, repo);
   }
-  git(work, 'add', '-A');
-  git(work, '-c', 'user.name=Test', '-c', 'user.email=test@example.org', 'commit', '-q', '-m', 'Initial');
-  git(root, 'clone', '-q', '--bare', work, repo);
   git(repo, 'config', 'http.receivepack', 'true');
   // Like the Subsurface cloud: HEAD points nowhere, so the server advertises no HEAD.
   git(repo, 'symbolic-ref', 'HEAD', 'refs/heads/no-such-branch');

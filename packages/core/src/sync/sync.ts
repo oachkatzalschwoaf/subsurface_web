@@ -240,3 +240,63 @@ export async function pushLogbook(env: GitEnv, remote: Remote, snapshot: Snapsho
     throw classify(error);
   }
 }
+
+/** Whether the branch exists on the remote (false for a new, empty repository). */
+export async function remoteHasBranch(env: GitEnv, remote: Remote): Promise<boolean> {
+  try {
+    const refs = await git.listServerRefs({
+      http: env.http,
+      url: remote.url,
+      ...(remote.corsProxy ? { corsProxy: remote.corsProxy } : {}),
+      prefix: 'refs/heads/',
+      protocolVersion: 1,
+      onAuth: auth(remote),
+    });
+    return refs.some((r) => r.ref === `refs/heads/${remote.branch}`);
+  } catch (error) {
+    throw classify(error);
+  }
+}
+
+/**
+ * Write a logbook as the first commit of a branch that does not exist yet, for example to start
+ * an own repository from a copy of the Subsurface cloud. Refuses if the branch exists.
+ */
+export async function initRemote(env: GitEnv, remote: Remote, logbook: Logbook, info: CommitInfo): Promise<string> {
+  if (await remoteHasBranch(env, remote)) {
+    throw new SyncError('conflict', `The branch "${remote.branch}" already exists on the server`);
+  }
+  const { fs, http, dir } = env;
+  try {
+    await git.init({ fs, dir, defaultBranch: remote.branch });
+    const tree = await writeTree(env, serializeLogbook(logbook));
+    const now = new Date();
+    const signature = {
+      name: info.authorName,
+      email: info.authorEmail,
+      timestamp: info.timestamp ?? Math.floor(now.getTime() / 1000),
+      timezoneOffset: info.timezoneOffset ?? now.getTimezoneOffset(),
+    };
+    const commit = await git.writeCommit({
+      fs,
+      dir,
+      commit: { message: info.message, tree, parent: [], author: signature, committer: signature },
+    });
+    await git.writeRef({ fs, dir, ref: `refs/heads/${remote.branch}`, value: commit, force: true });
+    const result = await git.push({
+      fs,
+      http,
+      dir,
+      url: remote.url,
+      ...(remote.corsProxy ? { corsProxy: remote.corsProxy } : {}),
+      ref: remote.branch,
+      remoteRef: `refs/heads/${remote.branch}`,
+      force: false,
+      onAuth: auth(remote),
+    });
+    if (!result.ok) throw new SyncError('conflict', result.error ?? 'The server rejected the upload');
+    return commit;
+  } catch (error) {
+    throw classify(error);
+  }
+}
