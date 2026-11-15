@@ -20,3 +20,6 @@ cloud-repo/
 
 # Server-specific proxy settings
 apps/web/public/git-proxy.config.php
+
+# Instance-specific legal notice (template: legal.example.html)
+apps/web/public/legal.html

@@ -5,6 +5,7 @@
   import DataPage from './components/DataPage.svelte';
   import DiveDetail from './components/DiveDetail.svelte';
   import DiveList from './components/DiveList.svelte';
+  import InstallHint from './components/InstallHint.svelte';
   import Setup from './components/Setup.svelte';
   import ShareCard from './components/ShareCard.svelte';
   import { APP_NAME } from './lib/brand.ts';
@@ -16,6 +17,7 @@
   let error = $state('');
   let success = $state('');
   let online = $state(navigator.onLine);
+  let hasLegal = $state(false);
 
   // Hash routes, so the phone's back button works: #/, #/add, #/data, #/dive/<when>, #/share/<when>
   let route = $state(location.hash || '#/');
@@ -48,6 +50,11 @@
     window.addEventListener('online', () => (online = true));
     window.addEventListener('offline', () => (online = false));
     void workspace.load();
+    // legal.html is optional and instance-specific (see public/legal.example.html)
+    // A missing file may come back as the app's index.html (SPA fallback), hence the marker check.
+    fetch('legal.html', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((text) => (hasLegal = text.includes('name="topside-legal"')), () => undefined);
   });
 
   function message(e: unknown): string {
@@ -153,11 +160,17 @@
         <button class="link" disabled={busy || !online} onclick={sync}>{busy ? t.signingIn : t.syncNow}</button>
       {/if}
     </section>
+    <InstallHint dismissible />
     <DiveList {logbook} pending={view?.pendingDives} onOpen={openDive} />
   {/if}
 
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if success}<p class="success" role="status">{success}</p>{/if}
+
+  <footer>
+    <p>{t.footerNote}</p>
+    {#if hasLegal}<a href="legal.html">{t.legal}</a>{/if}
+  </footer>
 </main>
 
 {#if secretRequest}
@@ -182,6 +195,18 @@
 {/if}
 
 <style>
+  footer {
+    margin-top: 32px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+  }
+  footer p {
+    margin: 0 0 4px;
+  }
+  footer a {
+    color: var(--muted);
+  }
   .badge {
     background: rgb(255 255 255 / 20%);
     border-radius: 999px;

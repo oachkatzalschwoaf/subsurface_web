@@ -1,0 +1,75 @@
+<!doctype html>
+<!--
+  Vorlage für Impressum und Datenschutz einer eigenen Installation.
+  Als legal.html (gleicher Ordner) speichern und die [Platzhalter] ausfüllen; die App verlinkt
+  die Seite dann unten. legal.html ist in .gitignore und wird nicht veröffentlicht.
+  Keine Rechtsberatung: Inhalt an die eigene Situation anpassen und prüfen.
+-->
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="topside-legal" content="1" />
+    <meta name="robots" content="noindex" />
+    <title>Impressum &amp; Datenschutz</title>
+    <link rel="stylesheet" href="legal.css" />
+  </head>
+  <body>
+    <main>
+      <p><a href="./">← Zurück zur App</a></p>
+
+      <h1>Impressum</h1>
+      <p>Offenlegung gemäß § 25 Mediengesetz (Österreich)</p>
+      <p>
+        Medieninhaber: [Vorname Nachname]<br />
+        Wohnort: [Ort, Österreich]<br />
+        Kontakt: [E-Mail-Adresse]
+      </p>
+      <p>
+        Private, nicht kommerzielle Website. Inhalt: ein Werkzeug zum Führen eines
+        Tauchlogbuchs im Subsurface-Format.
+      </p>
+
+      <h2>Hinweis</h2>
+      <p>
+        Diese App ist ein unabhängiges Open-Source-Projekt
+        (<a href="https://github.com/oachkatzalschwoaf/subsurface_web">Quellcode</a>, GPL-2.0) und kein
+        Angebot des Subsurface-Projekts. Die Nutzung erfolgt auf eigene Gefahr und ohne
+        Gewähr. Vor dem ersten Hochladen ein Backup des Logbuchs anlegen.
+      </p>
+
+      <h1>Datenschutz</h1>
+      <h2>Was diese Seite verarbeitet</h2>
+      <ul>
+        <li>
+          <strong>Zugangsdaten:</strong> E-Mail-Adresse und Passwort (oder Token) des gewählten
+          Logbuch-Servers werden beim Synchronisieren über den Proxy dieser Seite
+          (<code>git-proxy.php</code>) an diesen Server weitergeleitet. Sie werden hier nicht
+          gespeichert und nicht protokolliert.
+        </li>
+        <li>
+          <strong>Logbuchdaten:</strong> werden zwischen Ihrem Gerät und dem gewählten Server
+          durch den Proxy geleitet, aber auf diesem Server nicht gespeichert.
+        </li>
+        <li>
+          <strong>Auf Ihrem Gerät:</strong> Die App speichert eine Kopie des Logbuchs und noch
+          nicht hochgeladene Tauchgänge im Browser-Speicher Ihres Geräts. „Abmelden“ löscht
+          sie.
+        </li>
+        <li>
+          <strong>Server-Protokolle:</strong> Der Webhoster ([Name des Hosters]) speichert beim
+          Aufruf technisch notwendige Daten wie IP-Adresse, Zeitpunkt und aufgerufene Datei für
+          [Dauer] in Protokolldateien.
+        </li>
+      </ul>
+      <p>Es gibt keine Cookies, kein Tracking und keine eingebundenen Inhalte fremder Anbieter.</p>
+
+      <h2>Ihre Rechte</h2>
+      <p>
+        Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung und
+        Widerspruch nach der DSGVO. Anfragen an: [E-Mail-Adresse]. Beschwerden sind bei der
+        Österreichischen Datenschutzbehörde (dsb.gv.at) möglich.
+      </p>
+    </main>
+  </body>
+</html>

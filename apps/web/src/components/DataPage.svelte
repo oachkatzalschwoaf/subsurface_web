@@ -6,6 +6,7 @@
   import { locale, t } from '../lib/i18n.ts';
   import { isRemote, sourceLabel, type RemoteSource } from '../lib/sources.ts';
   import { workspace } from '../lib/workspace.svelte.ts';
+  import InstallHint from './InstallHint.svelte';
   import RemoteForm from './RemoteForm.svelte';
 
   let { busy, run }: { busy: boolean; run: (fn: () => Promise<string | void>) => Promise<void> } = $props();
@@ -145,6 +146,8 @@
     {/key}
   {/if}
 </section>
+
+<InstallHint />
 
 <section class="card">
   <button class="secondary danger" disabled={busy} onclick={signOut}>{t.signOutDelete}</button>
