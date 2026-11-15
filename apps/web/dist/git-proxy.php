@@ -9,7 +9,9 @@
  *   git-proxy.php/<host>/git/<account>/git-upload-pack
  *   git-proxy.php/<host>/git/<account>/git-receive-pack
  *
- * It must never become an open proxy: only the hosts and paths below are forwarded.
+ * It must never become an open proxy: only the Subsurface cloud and the git hosts listed in
+ * git-proxy.config.php (next to this file, optional) are reached, and only the three git
+ * endpoints. See git-proxy.config.example.php.
  * It stores nothing and logs nothing. Requires PHP 8 with cURL.
  *
  * SPDX-License-Identifier: GPL-2.0-only
@@ -20,6 +22,8 @@ declare(strict_types=1);
 /** Hosts that may be reached. Add your own git server here if you use one. */
 const ALLOWED_HOSTS = '/^(?:cloud|ssrf-cloud-[a-z0-9]+)\.subsurface-divelog\.org$/';
 const ALLOWED_PATH = '#^/git/[^/]+/(info/refs|git-upload-pack|git-receive-pack)$#';
+/** Path rule for the extra hosts (e.g. github.com/<owner>/<repo>.git/info/refs). */
+const GENERIC_PATH = '#^/(?:[A-Za-z0-9._~@%+-]+/)+(info/refs|git-upload-pack|git-receive-pack)$#';
 const ALLOWED_QUERY = '/^(|service=git-(upload|receive)-pack)$/';
 const MAX_BODY_BYTES = 64 * 1024 * 1024;
 
@@ -52,7 +56,22 @@ if (!preg_match('#^/([^/]+)(/.*)$#', $pathInfo, $m)) {
 [, $host, $path] = $m;
 $query = $_SERVER['QUERY_STRING'] ?? '';
 
-if (!preg_match(ALLOWED_HOSTS, $host) || !preg_match(ALLOWED_PATH, $path, $pm) || !preg_match(ALLOWED_QUERY, $query)) {
+$extraHosts = [];
+$configFile = __DIR__ . '/git-proxy.config.php';
+if (is_file($configFile)) {
+    $configured = require $configFile;
+    if (is_array($configured)) {
+        $extraHosts = array_map('strtolower', array_filter($configured, 'is_string'));
+    }
+}
+$isCloud = preg_match(ALLOWED_HOSTS, $host) === 1;
+$isExtra = in_array(strtolower($host), $extraHosts, true);
+if (!$isCloud && !$isExtra) {
+    // 421 tells the app "this server is not enabled here" rather than "wrong password"
+    fail(421, 'Host not allowed by git-proxy.php');
+}
+$pathRule = $isCloud ? ALLOWED_PATH : GENERIC_PATH;
+if (str_contains($path, '/../') || str_contains($path, '/./') || !preg_match($pathRule, $path, $pm) || !preg_match(ALLOWED_QUERY, $query)) {
     fail(403, 'Forbidden');
 }
 $isRefs = $pm[1] === 'info/refs';

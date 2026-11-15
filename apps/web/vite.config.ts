@@ -1,9 +1,16 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig, type Plugin } from 'vite';
+import { pwa } from './pwa.ts';
 
 /** Hosts the proxy may reach. Keep in sync with public/git-proxy.php. */
 const ALLOWED_HOST = /^(?:cloud|ssrf-cloud-[a-z0-9]+)\.subsurface-divelog\.org$/;
 const ALLOWED_PATH = /^\/git\/[^/]+\/(?:info\/refs|git-upload-pack|git-receive-pack)$/;
+const GENERIC_PATH = /^\/(?:[A-Za-z0-9._~@%+-]+\/)+(?:info\/refs|git-upload-pack|git-receive-pack)$/;
+/** Extra git hosts for development, like git-proxy.config.php in production. */
+const EXTRA_HOSTS = (process.env.TOPSIDE_PROXY_HOSTS ?? 'github.com,gitlab.com,codeberg.org')
+  .split(',')
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
 
 /**
  * Development stand-in for public/git-proxy.php: forwards git smart-HTTP requests from
@@ -22,7 +29,13 @@ function gitProxy(): Plugin {
           }
           const [, host = '', ...rest] = url.pathname.split('/');
           const path = `/${rest.join('/')}`;
-          if (!ALLOWED_HOST.test(host) || !ALLOWED_PATH.test(decodeURIComponent(path))) {
+          const isCloud = ALLOWED_HOST.test(host);
+          if (!isCloud && !EXTRA_HOSTS.includes(host.toLowerCase())) {
+            res.writeHead(421).end('Host not allowed by git-proxy.php');
+            return;
+          }
+          const decoded = decodeURIComponent(path);
+          if (decoded.includes('/../') || !(isCloud ? ALLOWED_PATH : GENERIC_PATH).test(decoded)) {
             res.writeHead(403).end('Forbidden');
             return;
           }
@@ -53,6 +66,6 @@ function gitProxy(): Plugin {
 
 export default defineConfig({
   base: './',
-  plugins: [svelte(), gitProxy()],
+  plugins: [svelte(), gitProxy(), pwa()],
   build: { target: 'es2022' },
 });

@@ -8,8 +8,21 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 # PHP behind CGI/FastCGI does not see the Authorization header unless it is passed on.
 SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
 
+# Web app manifest type, and no long caching for the files that announce updates.
+AddType application/manifest+json .webmanifest
+<IfModule mod_headers.c>
+  <FilesMatch "^(index.html|sw.js|manifest.webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
 # git-proxy.php is called as git-proxy.php/<host>/<path>.
 AcceptPathInfo On
+
+# git-proxy.config.php holds server settings; it is included by git-proxy.php, never served.
+<Files "git-proxy.config.php">
+  Require all denied
+</Files>
 
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"

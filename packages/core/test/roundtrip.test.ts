@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { flattenTree, parseLogbook, serializeLogbook, type GitTree } from '../src/index.ts';
+import { flattenTree, parseLogbook, serializeLogbook, unflattenTree, type GitTree } from '../src/index.ts';
 import { sampleRepo } from './fixtures/sample-repo.ts';
 import { describeDifferences, readGitTree, treeFromObject } from './helpers/git-tree.ts';
 
@@ -72,5 +72,12 @@ describe.skipIf(!existsSync(join(realRepo, '.git')))('round trip of a real Subsu
     expect(differences).toEqual([]);
     expect(logbook.dives.length).toBeGreaterThan(0);
     expect(flattenTree(tree).size).toBeGreaterThan(logbook.dives.length * 2);
+  });
+});
+
+describe('unflattenTree', () => {
+  it('restores a flattened tree, including empty directories', () => {
+    const tree = treeFromObject({ ...sampleRepo, '02-Filterpresets': {} });
+    expect(flattenTree(unflattenTree(flattenTree(tree)))).toEqual(flattenTree(tree));
   });
 });

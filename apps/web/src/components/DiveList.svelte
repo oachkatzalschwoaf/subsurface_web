@@ -3,7 +3,7 @@
   import { formatDate, formatDepth, formatMinutes, profilePath } from '../lib/format.ts';
   import { t } from '../lib/i18n.ts';
 
-  let { logbook, onOpen }: { logbook: Logbook; onOpen: (dive: Dive) => void } = $props();
+  let { logbook, pending, onOpen }: { logbook: Logbook; pending?: Set<Dive> | undefined; onOpen: (dive: Dive) => void } = $props();
 
   interface Group {
     key: Trip | string;
@@ -47,7 +47,7 @@
           <button class="row" onclick={() => onOpen(dive)}>
             <span class="nr">{dive.number || '–'}</span>
             <span class="main">
-              <strong>{siteName(dive) || formatDate(dive.when)}</strong>
+              <strong>{pending?.has(dive) ? "⏳ " : ""}{siteName(dive) || formatDate(dive.when)}</strong>
               <small>{formatDate(dive.when)}</small>
             </span>
             {#if (dc?.samples.length ?? 0) > 1}

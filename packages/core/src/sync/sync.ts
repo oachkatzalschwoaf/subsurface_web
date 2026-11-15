@@ -57,6 +57,7 @@ function classify(error: unknown): SyncError {
   if (error instanceof SyncError) return error;
   const e = error as { code?: string; data?: { statusCode?: number; statusMessage?: string }; message?: string };
   const status = e.data?.statusCode;
+  if (status === 421) return new SyncError('unsupported', 'This git server is not enabled in git-proxy.config.php');
   if (status === 401 || status === 403) return new SyncError('auth', 'Wrong e-mail or password');
   if (status === 404) return new SyncError('not-found', `HTTP 404 ${e.data?.statusMessage ?? ''}`.trim());
   if (e.code === 'NotFoundError') return new SyncError('not-found', e.message ?? 'NotFoundError');

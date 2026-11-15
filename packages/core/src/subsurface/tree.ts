@@ -42,3 +42,18 @@ export function flattenTree(tree: GitTree, prefix = ''): Map<string, string> {
   }
   return out;
 }
+
+/** Inverse of flattenTree(): paths ending in "/" are empty directories. */
+export function unflattenTree(files: Iterable<[string, string]>): GitTree {
+  const root: GitTree = new Map();
+  for (const [path, content] of files) {
+    const isDir = path.endsWith('/');
+    const parts = (isDir ? path.slice(0, -1) : path).split('/');
+    const name = parts.pop()!;
+    let dir = root;
+    for (const part of parts) dir = subtree(dir, part);
+    if (isDir) subtree(dir, name);
+    else dir.set(name, content);
+  }
+  return root;
+}

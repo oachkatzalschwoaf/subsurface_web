@@ -17,3 +17,6 @@ cloud-repo/
 
 # Defaults without secrets
 !apps/web/.env
+
+# Server-specific proxy settings
+apps/web/public/git-proxy.config.php
