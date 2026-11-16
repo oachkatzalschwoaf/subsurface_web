@@ -34,6 +34,10 @@ servers such as `127.0.0.1:51234`). App name: `VITE_APP_NAME` in `apps/web/.env`
 
 `apps/web/dist/` is tracked in git (deployed by FTP); rebuild after web changes.
 
+On Windows, run Vitest from a path with an upper-case drive letter (`W:\…`, not `w:\…`).
+With a lower-case one every suite fails with "Cannot read properties of undefined (reading
+'config')", because Vitest gets loaded twice under two spellings of the same path.
+
 ## Architecture
 
 ### packages/core — no DOM, runs in browser and Node
@@ -60,6 +64,8 @@ servers such as `127.0.0.1:51234`). App name: `VITE_APP_NAME` in `apps/web/.env`
 - `subsurface/edit.ts`, `merge.ts`, `app/drafts.ts` — logbook changes: append dives with
   Subsurface numbering, copy missing dives between logbooks (sites/trips reused or created),
   drafts that describe user input independently of a logbook copy and are applied later.
+  `app/presets.ts`: equipment presets (never pressures) and suggestions taken from the logbook
+  (cylinder types, suits, buddies); the web app keeps presets in `localStorage` (`lib/gear.ts`).
 - `sync/sync.ts` — isomorphic-git on objects only (no checkout). `fetchLogbook` clones and reads
   the tree; `inspect()` refuses writing (returns `problems`) unless the tree round-trips exactly;
   `pushLogbook` commits on top of the fetched commit and never force-pushes (a moved remote is a

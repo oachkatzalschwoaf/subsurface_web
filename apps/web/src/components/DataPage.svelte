@@ -3,6 +3,7 @@
   import { parseLogbook, parseXml } from '@topside/core';
   import { APP_NAME } from '../lib/brand.ts';
   import { backupZip, downloadFile, readBackupZip, today } from '../lib/files.ts';
+  import { clearGear } from '../lib/gear.ts';
   import { locale, t } from '../lib/i18n.ts';
   import { isRemote, sourceLabel, type RemoteSource } from '../lib/sources.ts';
   import { workspace } from '../lib/workspace.svelte.ts';
@@ -83,6 +84,7 @@
     if (!confirm(message)) return;
     run(async () => {
       await workspace.signOut();
+      clearGear();
       location.hash = '#/';
     });
   }

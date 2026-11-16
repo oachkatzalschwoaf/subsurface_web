@@ -33,6 +33,11 @@ export interface DiveDraft {
   /** Litres; null = not set */
   cylinderVolume: number | null;
   cylinderDescription: string;
+  /**
+   * Oxygen in percent. null = keep what the dive computer recorded (air if it recorded nothing).
+   * Drafts stored by older versions do not have this field.
+   */
+  cylinderO2: number | null;
   /** bar; null = not set */
   startPressure: number | null;
   endPressure: number | null;
@@ -42,6 +47,7 @@ export interface DiveDraft {
 }
 
 export function newDraft(fit: FitImport): DiveDraft {
+  const recordedO2 = fit.dive.cylinders[0]?.o2 ?? 0;
   return {
     fit,
     site: { kind: 'none' },
@@ -54,6 +60,7 @@ export function newDraft(fit: FitImport): DiveDraft {
     visibility: 0,
     cylinderVolume: null,
     cylinderDescription: '',
+    cylinderO2: recordedO2 > 0 ? recordedO2 / 10 : null,
     startPressure: null,
     endPressure: null,
     weight: null,
@@ -109,8 +116,13 @@ export function applyDrafts(logbook: Logbook, drafts: readonly DiveDraft[], trip
       dive.siteUuid = site.uuid;
     }
 
+    const o2 = (draft.cylinderO2 as number | null | undefined) ?? null;
     const hasCylinderInput =
-      draft.cylinderVolume !== null || draft.cylinderDescription.trim() !== '' || draft.startPressure !== null || draft.endPressure !== null;
+      draft.cylinderVolume !== null ||
+      draft.cylinderDescription.trim() !== '' ||
+      draft.startPressure !== null ||
+      draft.endPressure !== null ||
+      o2 !== null;
     if (hasCylinderInput) {
       const cylinder = dive.cylinders[0] ?? newCylinder();
       if (dive.cylinders.length === 0) dive.cylinders.push(cylinder);
@@ -118,6 +130,11 @@ export function applyDrafts(logbook: Logbook, drafts: readonly DiveDraft[], trip
       cylinder.description = draft.cylinderDescription.trim();
       cylinder.start = milli(draft.startPressure);
       cylinder.end = milli(draft.endPressure);
+      if (o2 !== null && Number.isFinite(o2) && o2 >= 1 && o2 <= 100) {
+        const permille = Math.round(o2 * 10);
+        // air is stored as "no mix", as Subsurface does
+        cylinder.o2 = permille === 210 && cylinder.he === 0 ? 0 : permille;
+      }
     }
     if (draft.weight !== null && Number.isFinite(draft.weight)) {
       dive.weightsystems.push({ weight: milli(draft.weight), description: draft.weightDescription.trim() });
