@@ -228,8 +228,9 @@
   }
 </script>
 
-<section class="card">
-  <div class="preview" class:checker={s.background === 'transparent'} style:aspect-ratio={`${W} / ${H}`}>
+<div class="editor">
+<section class="card image">
+  <div class="preview" class:checker={s.background === 'transparent'} style:aspect-ratio={`${W} / ${H}`} style:--ratio={W / H}>
     <canvas bind:this={canvas}></canvas>
     {#if rects}
       {#each blocks as b (b.id)}
@@ -263,6 +264,7 @@
   </div>
 </section>
 
+<div class="controls">
 <section class="card">
   <h3>{t.shareInfo}</h3>
   <div class="chips">
@@ -346,8 +348,27 @@
     </label>
   {/if}
 </section>
+</div>
+</div>
 
 <style>
+  /* Wide screens: the image stays in view on the left, the settings scroll on the right. */
+  @media (min-width: 900px) {
+    .editor {
+      display: grid;
+      grid-template-columns: minmax(0, 460px) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .image {
+      position: sticky;
+      top: calc(var(--bar-height) + 16px);
+    }
+    /* the whole image has to fit the window height, also the tall 9:16 format */
+    .image .preview {
+      max-width: clamp(200px, calc((100dvh - var(--bar-height) - 190px) * var(--ratio)), 420px);
+    }
+  }
   .preview {
     position: relative;
     width: 100%;

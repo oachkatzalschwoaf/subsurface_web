@@ -17,7 +17,7 @@ function manifest(name: string): string {
       start_url: './',
       scope: './',
       display: 'standalone',
-      orientation: 'portrait',
+      orientation: 'any',
       background_color: '#0f171c',
       theme_color: '#0b5c8a',
       icons: [

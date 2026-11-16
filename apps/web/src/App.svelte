@@ -1,6 +1,7 @@
 <script lang="ts">
   import { SyncError, type Dive, type DiveDraft, type TripChoice } from '@topside/core';
   import { onMount } from 'svelte';
+  import { MediaQuery } from 'svelte/reactivity';
   import AddDives from './components/AddDives.svelte';
   import DataPage from './components/DataPage.svelte';
   import DiveDetail from './components/DiveDetail.svelte';
@@ -30,7 +31,18 @@
   const shareDive = $derived(routeDive('#/share/'));
   const tab = $derived(route === '#/add' ? 'add' : route === '#/data' ? 'data' : 'log');
   const remote = $derived(workspace.source !== null && isRemote(workspace.source));
-  const openDive = (dive: Dive) => go(`#/dive/${dive.when}`);
+
+  // Wide screens (PC, tablet, phone held sideways) show the list and one dive side by side.
+  const wide = new MediaQuery('(min-width: 900px)');
+  const split = $derived(wide.current && tab === 'log' && !shareDive);
+  /** The dive on the right-hand side: the opened one, otherwise the newest. */
+  const shownDive = $derived(detailDive ?? (split ? (logbook?.dives.at(-1) ?? null) : null));
+  function openDive(dive: Dive) {
+    const hash = `#/dive/${dive.when}`;
+    // Side by side, picking another dive should not pile up history entries.
+    if (split && route.startsWith('#/dive/')) location.replace(hash);
+    else go(hash);
+  }
 
   // ---- Password prompt ------------------------------------------------------------------------
   let secretRequest = $state<{ label: string; resolve: (v: string | null) => void } | null>(null);
@@ -108,43 +120,8 @@
   }
 </script>
 
-<header>
-  <h1>{APP_NAME}</h1>
-  {#if !online}<span class="badge">{t.offline}</span>{/if}
-</header>
-
-{#if workspace.source}
-  <nav class="tabs">
-    <a href="#/" class:active={tab === 'log'}>{t.navLog}</a>
-    <a href="#/add" class:active={tab === 'add'}>{t.navAdd}</a>
-    <a href="#/data" class:active={tab === 'data'}>
-      {t.navData}{#if workspace.pendingCount}<span class="count">{workspace.pendingCount}</span>{/if}
-    </a>
-  </nav>
-{/if}
-
-<main>
-  {#if !workspace.loaded}
-    <p class="hint">…</p>
-  {:else if !workspace.source}
-    <Setup onError={(e) => (error = message(e))} />
-  {:else if logbook && shareDive}
-    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
-    <h2>{t.shareTitle}</h2>
-    <ShareCard {logbook} dive={shareDive} />
-  {:else if logbook && detailDive}
-    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
-    {#if view?.pendingDives.has(detailDive)}<p class="hint">⏳ {t.notSynced}</p>{/if}
-    <DiveDetail {logbook} dive={detailDive} onShare={() => go(`#/share/${detailDive.when}`)} />
-  {:else if logbook && tab === 'add'}
-    {#if workspace.problems.length > 0 && remote}
-      <p class="error" role="alert">{t.readOnly} {workspace.problems[0]}</p>
-    {:else}
-      <AddDives {logbook} local={!remote} {busy} onAdd={addDives} />
-    {/if}
-  {:else if tab === 'data'}
-    <DataPage {busy} {run} />
-  {:else if logbook}
+{#snippet listPane(current: Dive | null, hintFirst: boolean)}
+  {#if logbook}
     <section class="card summary">
       <div>
         <strong>{t.logbook(logbook.dives.length)}</strong>
@@ -160,8 +137,66 @@
         <button class="link" disabled={busy || !online} onclick={sync}>{busy ? t.signingIn : t.syncNow}</button>
       {/if}
     </section>
-    <InstallHint dismissible />
-    <DiveList {logbook} pending={view?.pendingDives} onOpen={openDive} />
+    <!-- Side by side the list has little height (phone held sideways), so the dives come first. -->
+    {#if hintFirst}<InstallHint dismissible />{/if}
+    <DiveList {logbook} pending={view?.pendingDives} selected={current} onOpen={openDive} />
+    {#if !hintFirst}<InstallHint dismissible />{/if}
+  {/if}
+{/snippet}
+
+{#snippet divePane(dive: Dive)}
+  {#if logbook}
+    {#if view?.pendingDives.has(dive)}<p class="hint">⏳ {t.notSynced}</p>{/if}
+    <DiveDetail {logbook} {dive} onShare={() => go(`#/share/${dive.when}`)} />
+  {/if}
+{/snippet}
+
+<div class="topbar">
+  <header>
+    <h1>{APP_NAME}</h1>
+    {#if !online}<span class="badge">{t.offline}</span>{/if}
+  </header>
+
+{#if workspace.source}
+  <nav class="tabs">
+    <a href="#/" class:active={tab === 'log'}>{t.navLog}</a>
+    <a href="#/add" class:active={tab === 'add'}>{t.navAdd}</a>
+    <a href="#/data" class:active={tab === 'data'}>
+      {t.navData}{#if workspace.pendingCount}<span class="count">{workspace.pendingCount}</span>{/if}
+    </a>
+  </nav>
+{/if}
+</div>
+
+<main class:roomy={split || shareDive !== null || tab === 'data'}>
+  {#if !workspace.loaded}
+    <p class="hint">…</p>
+  {:else if !workspace.source}
+    <Setup onError={(e) => (error = message(e))} />
+  {:else if logbook && shareDive}
+    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
+    <h2>{t.shareTitle}</h2>
+    <ShareCard {logbook} dive={shareDive} />
+  {:else if logbook && split}
+    <div class="split">
+      <aside>{@render listPane(shownDive, false)}</aside>
+      <div class="pane">
+        {#if shownDive}{@render divePane(shownDive)}{/if}
+      </div>
+    </div>
+  {:else if logbook && detailDive}
+    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
+    {@render divePane(detailDive)}
+  {:else if logbook && tab === 'add'}
+    {#if workspace.problems.length > 0 && remote}
+      <p class="error" role="alert">{t.readOnly} {workspace.problems[0]}</p>
+    {:else}
+      <AddDives {logbook} local={!remote} {busy} onAdd={addDives} />
+    {/if}
+  {:else if tab === 'data'}
+    <DataPage {busy} {run} />
+  {:else if logbook}
+    {@render listPane(null, true)}
   {/if}
 
   {#if error}<p class="error" role="alert">{error}</p>{/if}
@@ -195,6 +230,24 @@
 {/if}
 
 <style>
+  /* List on the left with its own scrolling, the dive on the right. */
+  .split {
+    display: grid;
+    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .split aside {
+    position: sticky;
+    top: calc(var(--bar-height) + 16px);
+    max-height: calc(100dvh - var(--bar-height) - 32px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .pane {
+    min-width: 0;
+  }
   footer {
     margin-top: 32px;
     font-size: 0.8rem;

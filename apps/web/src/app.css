@@ -13,6 +13,8 @@
   --series-temp: #eb6834;
   --series-hr: #6250d6;
   --status-warning: #e0a000;
+  /* height of the combined title and tab bar on wide screens */
+  --bar-height: 52px;
   color-scheme: light dark;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
@@ -254,4 +256,54 @@ button:disabled {
 
 .back {
   margin-bottom: 8px;
+}
+
+/* Narrow screens: title and tabs are separate rows, only the tabs stay on screen. */
+.topbar {
+  display: contents;
+}
+
+/* Wide screens (PC, tablet, phone held sideways): one bar, more room for the content. */
+@media (min-width: 900px) {
+  .topbar {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    height: var(--bar-height);
+    background: var(--accent);
+    /* line up with the content column */
+    padding-inline: max(0px, calc((100% - 1280px) / 2));
+  }
+  .topbar header {
+    flex: 1;
+    justify-content: flex-start;
+    gap: 12px;
+    padding-block: 0;
+  }
+  .topbar .tabs {
+    position: static;
+    background: none;
+    border-bottom: 0;
+    padding-right: 8px;
+  }
+  .topbar .tabs a {
+    flex: none;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    color: var(--accent-text);
+    opacity: 0.75;
+  }
+  .topbar .tabs a.active {
+    color: var(--accent-text);
+    border-bottom-color: var(--accent-text);
+    opacity: 1;
+  }
+  main.roomy {
+    max-width: 1280px;
+  }
 }

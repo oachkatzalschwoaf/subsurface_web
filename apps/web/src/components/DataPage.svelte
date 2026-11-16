@@ -88,6 +88,7 @@
   }
 </script>
 
+<div class="data">
 <section class="card">
   <h3>{t.dataSource}</h3>
   <p>{workspace.source?.kind === 'local' ? t.srcLocal : workspace.label}</p>
@@ -152,8 +153,18 @@
 <section class="card">
   <button class="secondary danger" disabled={busy} onclick={signOut}>{t.signOutDelete}</button>
 </section>
+</div>
 
 <style>
+  @media (min-width: 900px) {
+    .data {
+      columns: 2;
+      column-gap: 16px;
+    }
+    .data > :global(*) {
+      break-inside: avoid;
+    }
+  }
   h3 {
     margin: 0;
     font-size: 0.9rem;

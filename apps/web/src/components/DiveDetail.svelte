@@ -51,6 +51,7 @@
   <DiveChart {dive} />
 </section>
 
+<div class="info">
 {#if people.length || dive.rating || dive.visibility}
   <section class="card">
     <dl>
@@ -83,6 +84,7 @@
     </dl>
   </section>
 {/if}
+</div>
 
 {#if dive.notes}
   <section class="card">
@@ -110,7 +112,7 @@
   }
   .tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 12px;
     margin-bottom: 12px;
   }
@@ -129,6 +131,12 @@
   .tile strong {
     font-size: 1.5rem;
     font-variant-numeric: tabular-nums;
+  }
+  /* People and equipment next to each other where the page is wide enough */
+  .info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    column-gap: 12px;
   }
   dl {
     display: grid;

@@ -3,7 +3,12 @@
   import { formatDate, formatDateRange, formatDepth, formatMinutes, profilePath } from '../lib/format.ts';
   import { t } from '../lib/i18n.ts';
 
-  let { logbook, pending, onOpen }: { logbook: Logbook; pending?: Set<Dive> | undefined; onOpen: (dive: Dive) => void } = $props();
+  let {
+    logbook,
+    pending,
+    selected = null,
+    onOpen,
+  }: { logbook: Logbook; pending?: Set<Dive> | undefined; selected?: Dive | null; onOpen: (dive: Dive) => void } = $props();
 
   interface Group {
     key: Trip | string;
@@ -35,7 +40,7 @@
 {/if}
 
 {#each groups as group, i (group.key)}
-  <details class="group" open={i < 2}>
+  <details class="group" open={i < 2 || (selected !== null && group.dives.includes(selected))}>
     <summary>
       <span class="title">
         <span>{group.label}</span>
@@ -47,7 +52,7 @@
       {#each group.dives as dive (dive.when)}
         {@const dc = dive.computers[0]}
         <li>
-          <button class="row" onclick={() => onOpen(dive)}>
+          <button class="row" aria-current={dive === selected ? 'true' : undefined} onclick={() => onOpen(dive)}>
             <span class="nr">{dive.number || '–'}</span>
             <span class="main">
               <strong>{pending?.has(dive) ? "⏳ " : ""}{siteName(dive) || formatDate(dive.when)}</strong>
@@ -121,6 +126,10 @@
   }
   li + li .row {
     border-top: 0;
+  }
+  .row[aria-current] {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    box-shadow: inset 4px 0 0 var(--accent);
   }
   .nr {
     width: 2.2em;
