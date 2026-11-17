@@ -331,7 +331,7 @@
 
   <footer>
     <p>{t.footerNote}</p>
-    {#if hasLegal}<a href="legal.html">{t.legal}</a>{/if}
+    {#if hasLegal}<a href={`legal.html#${lang}`}>{t.legal}</a>{/if}
   </footer>
 </main>
 
