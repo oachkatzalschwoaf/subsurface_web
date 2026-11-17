@@ -30,6 +30,7 @@
     type ShareBackground,
     type ShareFormat,
     type TemplateId,
+    type TextColor,
     type ThemeId,
   } from '../lib/share-render.ts';
 
@@ -45,9 +46,12 @@
     italic: boolean;
     fontScale: number;
     theme: ThemeId;
+    textColor: TextColor;
     stats: string[];
     showSite: boolean;
     showDate: boolean;
+    /** start time of the dive in the date line */
+    showTime: boolean;
     graph: GraphOptions;
     layout: Layout;
     /** Name of the layout template, or 'custom' once a block was moved. */
@@ -63,9 +67,11 @@
     italic: false,
     fontScale: 1,
     theme: 'ocean',
+    textColor: 'white',
     stats: defaultStats,
     showSite: true,
     showDate: true,
+    showTime: false,
     graph: { show: true, grid: true, maxMarker: true, temp: false, hr: false },
     layout: templateLayout('classic', defaultStats, canvasSize('portrait', null)),
     template: 'classic',
@@ -79,6 +85,11 @@
       if (merged.background === 'photo') merged.background = 'ocean';
       if (merged.format === 'photo') merged.format = 'portrait';
       if (!(merged.font in FONTS)) merged.font = defaults.font;
+      // "Start" was a number of its own; the time now goes into the date line
+      if (merged.stats.includes('start')) {
+        merged.stats = merged.stats.filter((id) => id !== 'start');
+        merged.showTime = true;
+      }
       // Settings of the first version had one block for all numbers: lay them out anew.
       if (saved.version !== 2) {
         if (merged.template === 'custom') merged.template = 'classic';
@@ -120,7 +131,6 @@
   const available = $derived.by(() => {
     const hrs = allPoints.filter((p) => p.hr !== null).map((p) => p.hr!);
     const cyl = dive.cylinders[0];
-    const tm = toTm(dive.when);
     const out: { id: string; label: string; value: string }[] = [
       { id: 'duration', label: t.statDuration, value: `${Math.round(info.duration / 60)} min` },
       { id: 'maxDepth', label: t.statMaxDepth, value: `${one.format(info.maxDepth)} m` },
@@ -136,7 +146,6 @@
       out.push({ id: 'avgHr', label: t.statAvgHr, value: `${Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length)} bpm` });
       out.push({ id: 'maxHr', label: t.statMaxHr, value: `${Math.max(...hrs)} bpm` });
     }
-    out.push({ id: 'start', label: t.statStart, value: `${String(tm.hour).padStart(2, '0')}:${String(tm.minute).padStart(2, '0')}` });
     if (cyl?.start && cyl.end) {
       out.push({ id: 'pressure', label: t.statPressure, value: `${Math.round(cyl.start / 1000)}–${Math.round(cyl.end / 1000)} bar` });
       // Surface air consumption, computed as Subsurface does
@@ -167,7 +176,11 @@
     const content = {
       points,
       title: style.showSite ? info.site || info.trip : '',
-      subtitle: [style.showDate ? formatDate(dive.when).replace(/ \d\d:\d\d$/, '') : '', style.showSite && info.site ? info.trip : '']
+      subtitle: [
+        style.showDate ? formatDate(dive.when).replace(/ \d\d:\d\d$/, '') : '',
+        style.showTime ? startTime : '',
+        style.showSite && info.site ? info.trip : '',
+      ]
         .filter(Boolean)
         .join(' · '),
       stats: available.filter((a) => style.stats.includes(a.id)),
@@ -227,6 +240,26 @@
     id === 'title' ? t.showSite : id === 'subtitle' ? t.showDate : id === 'graph' ? t.shareGraph : (available.find((a) => statBlock(a.id) === id)?.label ?? id);
   const blocks = $derived(rects ? Object.keys(rects).map((id) => ({ id, label: blockLabel(id) })) : []);
   const pct = (v: number, total: number) => `${(v / total) * 100}%`;
+
+  const startTime = $derived(`${String(toTm(dive.when).hour).padStart(2, '0')}:${String(toTm(dive.when).minute).padStart(2, '0')}`);
+
+  /** Formats as shapes to pick from; "Original" only with a photo as background. */
+  const formats = $derived(
+    [
+      { id: 'story', ratio: 9 / 16, short: '9:16', label: '9:16' },
+      { id: 'portrait', ratio: 4 / 5, short: '4:5', label: '4:5' },
+      { id: 'square', ratio: 1, short: '1:1', label: '1:1' },
+      { id: 'landscape', ratio: 4 / 3, short: '4:3', label: t.formatLandscape },
+      { id: 'wide', ratio: 16 / 9, short: '16:9', label: t.formatWide },
+      ...(photo && s.background === 'photo'
+        ? [{ id: 'photo', ratio: photo.width / photo.height, short: t.formatPhoto, label: t.formatPhoto }]
+        : []),
+    ] as { id: ShareFormat; ratio: number; short: string; label: string }[],
+  );
+  function setFormat(format: ShareFormat) {
+    s.format = format;
+    relayout();
+  }
 
   function applyTemplate(name: string) {
     if (name !== 'classic' && name !== 'minimal' && name !== 'profile') return;
@@ -339,6 +372,7 @@
   <div class="chips">
     <button class="chip" aria-pressed={s.showSite} onclick={() => (s.showSite = !s.showSite)}>{t.showSite}</button>
     <button class="chip" aria-pressed={s.showDate} onclick={() => (s.showDate = !s.showDate)}>{t.showDate}</button>
+    <button class="chip" aria-pressed={s.showTime} onclick={() => (s.showTime = !s.showTime)}>{t.showTime}</button>
     {#each available as a (a.id)}
       <button class="chip" aria-pressed={s.stats.includes(a.id)} onclick={() => toggleStat(a.id)}>{a.label}</button>
     {/each}
@@ -363,6 +397,17 @@
 </section>
 
 <section class="card">
+  <div class="formats" role="group" aria-label={t.format}>
+    <h3>{t.format}</h3>
+    <div class="format-row">
+      {#each formats as f (f.id)}
+        <button class="format" aria-pressed={s.format === f.id} aria-label={f.label} title={f.label} onclick={() => setFormat(f.id)}>
+          <span class="shape" style:width={`${f.ratio >= 1 ? 40 : 40 * f.ratio}px`} style:height={`${f.ratio >= 1 ? 40 / f.ratio : 40}px`}></span>
+          <small>{f.short}</small>
+        </button>
+      {/each}
+    </div>
+  </div>
   <div class="options">
     <label>
       {t.template}
@@ -371,23 +416,6 @@
         <option value="profile">{t.tplProfile}</option>
         <option value="minimal">{t.tplMinimal}</option>
         {#if s.template === 'custom'}<option value="custom">{t.tplCustom}</option>{/if}
-      </select>
-    </label>
-    <label>
-      {t.format}
-      <select
-        value={s.format}
-        onchange={(e) => {
-          s.format = e.currentTarget.value as ShareFormat;
-          relayout();
-        }}
-      >
-        <option value="portrait">4:5</option>
-        <option value="square">1:1</option>
-        <option value="story">9:16</option>
-        <option value="landscape">{t.formatLandscape}</option>
-        <option value="wide">{t.formatWide}</option>
-        {#if photo && s.background === 'photo'}<option value="photo">{t.formatPhoto}</option>{/if}
       </select>
     </label>
     <label>
@@ -405,6 +433,14 @@
         <option value="coral">{t.themeCoral}</option>
         <option value="sunset">{t.themeSunset}</option>
         <option value="lava">{t.themeLava}</option>
+      </select>
+    </label>
+    <label>
+      {t.textColor}
+      <select bind:value={s.textColor}>
+        <option value="white">{t.textWhite}</option>
+        <option value="dark">{t.textDark}</option>
+        <option value="accent">{t.textAccent}</option>
       </select>
     </label>
     <label>
@@ -538,6 +574,41 @@
   .actions {
     display: flex;
     gap: 12px;
+  }
+  .format-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .format {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 64px;
+    min-height: 72px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .format .shape {
+    display: block;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+  }
+  .format[aria-pressed='true'] {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .formats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   .photos {
     display: flex;

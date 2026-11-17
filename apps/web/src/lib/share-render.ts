@@ -10,6 +10,7 @@ export type ShareBackground = 'transparent' | 'ocean' | 'photo';
 export type FontId = 'system' | 'bebas' | 'anton' | 'archivo' | 'righteous' | 'kanit' | 'bangers' | 'comic' | 'pacifico';
 export type ThemeId = 'ocean' | 'ice' | 'deep' | 'coral' | 'sunset' | 'lava';
 export type TemplateId = 'classic' | 'minimal' | 'profile';
+export type TextColor = 'white' | 'dark' | 'accent';
 /** 'title', 'subtitle', 'graph' or 'stat:<id>' */
 export type BlockId = string;
 
@@ -157,6 +158,8 @@ export interface ShareStyle {
   /** 0.6–1.6, multiplies all text */
   fontScale: number;
   theme: ThemeId;
+  /** white (the theme's text colour), dark, or the theme's line colour */
+  textColor: TextColor;
   layout: Layout;
   graph: GraphOptions;
 }
@@ -185,7 +188,11 @@ export function renderShare(canvas: HTMLCanvasElement, content: ShareContent, st
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
-  const theme = THEMES[style.theme];
+  const base = THEMES[style.theme];
+  // Dark text gets a light glow instead of the dark shadow, so it stays readable on dark spots.
+  const dark = style.textColor === 'dark';
+  const theme: Theme = { ...base, text: dark ? '#0b1e2b' : style.textColor === 'accent' ? base.line : base.text };
+  const shadow = dark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 20, 40, 0.45)';
   const font = FONTS[style.font];
   /** one unit: 1 px on a 1080 px wide portrait image */
   const u = Math.min(W, H) / 1080;
@@ -202,7 +209,7 @@ export function renderShare(canvas: HTMLCanvasElement, content: ShareContent, st
   const place = (id: BlockId) => style.layout[id] ?? { x: 0.067, y: 0.05, w: 0, h: 0 };
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = theme.text;
-  ctx.shadowColor = 'rgba(0, 20, 40, 0.45)';
+  ctx.shadowColor = shadow;
   ctx.shadowBlur = 14 * u;
 
   if (content.title) {
@@ -250,6 +257,7 @@ export function renderShare(canvas: HTMLCanvasElement, content: ShareContent, st
     rects.graph = r;
   }
 
+  ctx.shadowColor = shadow;
   ctx.shadowBlur = 14 * u;
   if (content.footer) {
     ctx.font = `600 ${28 * u}px ${SYSTEM}`;
