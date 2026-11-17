@@ -73,6 +73,9 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   `app/pictures.ts`: picture references ("Topside/<date time site>/<name>", so Subsurface's
   "Find moved media files" matches the unpacked full export), offsets from Exif, ordering as
   Subsurface's add_picture(). The images stay in IndexedDB (`apps/web/src/lib/media.ts`).
+- `subsurface/gas.ts` — gas use and SAC exactly as Subsurface computes them (real-gas
+  compressibility, salinity, surface pressure); the XML export writes `sac` like Subsurface.
+  `app/stats.ts` — logbook statistics and the dive search.
 - `sync/sync.ts` — isomorphic-git on objects only (no checkout). `fetchLogbook` clones and reads
   the tree; `inspect()` refuses writing (returns `problems`) unless the tree round-trips exactly;
   `pushLogbook` commits on top of the fetched commit and never force-pushes (a moved remote is a

@@ -3,7 +3,7 @@
   import '@fontsource/archivo-black/latin-400.css';
   import '@fontsource/bebas-neue/latin-400.css';
   import '@fontsource/righteous/latin-400.css';
-  import { toTm, type Dive, type Logbook } from '@topside/core';
+  import { sacRate, toTm, type Dive, type Logbook } from '@topside/core';
   import { APP_NAME } from '../lib/brand.ts';
   import { downsample, profile, summary } from '../lib/dive-data.ts';
   import { formatDate } from '../lib/format.ts';
@@ -107,12 +107,9 @@
     out.push({ id: 'start', label: t.statStart, value: `${String(tm.hour).padStart(2, '0')}:${String(tm.minute).padStart(2, '0')}` });
     if (cyl?.start && cyl.end) {
       out.push({ id: 'pressure', label: t.statPressure, value: `${Math.round(cyl.start / 1000)}–${Math.round(cyl.end / 1000)} bar` });
-      // Surface air consumption: litres used per minute, corrected to surface pressure
-      if (cyl.volume && info.meanDepth && info.duration) {
-        const litres = ((cyl.start - cyl.end) / 1000) * (cyl.volume / 1000);
-        const sac = litres / (info.duration / 60) / (info.meanDepth / 10 + 1);
-        out.push({ id: 'sac', label: t.statSac, value: `${one.format(sac)} l/min` });
-      }
+      // Surface air consumption, computed as Subsurface does
+      const sac = sacRate(dive);
+      if (sac) out.push({ id: 'sac', label: t.statSac, value: `${one.format(sac / 1000)} l/min` });
     }
     if (cyl) out.push({ id: 'gas', label: t.statGas, value: !cyl.o2 ? t.gasAir : `EAN${Math.round(cyl.o2 / 10)}` });
     return out;

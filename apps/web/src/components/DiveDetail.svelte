@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CYLINDER_USE, formatCoordinates, MANUAL_DIVE_MODEL, type Dive, type Location, type Logbook } from '@topside/core';
+  import { CYLINDER_USE, formatCoordinates, MANUAL_DIVE_MODEL, sacRate, type Dive, type Location, type Logbook } from '@topside/core';
   import { summary } from '../lib/dive-data.ts';
   import { formatDate } from '../lib/format.ts';
   import { locale, t } from '../lib/i18n.ts';
@@ -42,6 +42,7 @@
       info.meanDepth !== null ? { label: t.statMeanDepth, value: `${one.format(info.meanDepth)} m` } : null,
       info.waterTemp !== null ? { label: t.statWater, value: `${one.format(info.waterTemp)} °C` } : null,
       info.airTemp !== null ? { label: t.statAir, value: `${one.format(info.airTemp)} °C` } : null,
+      sacRate(dive) ? { label: t.statSac, value: `${one.format(sacRate(dive) / 1000)} l/min` } : null,
     ].filter((x): x is { label: string; value: string } => x !== null),
   );
 

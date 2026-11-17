@@ -28,7 +28,7 @@ describe('Subsurface XML', () => {
     const xml = serializeXml(logbook);
     expect(xml.startsWith("<divelog program='subsurface' version='3'>\n<settings>\n")).toBe(true);
     expect(xml).toContain(
-      "<dive number='1' rating='4' visibility='3' tags='Training, Lake' divesiteid='  c0ffee' date='2026-04-26' time='10:13:05' duration='42:44 min'>\n" +
+      "<dive number='1' rating='4' visibility='3' sac='22.830 l/min' tags='Training, Lake' divesiteid='  c0ffee' date='2026-04-26' time='10:13:05' duration='42:44 min'>\n" +
         '  <divemaster>Alex Example</divemaster>\n  <buddy>Sam Sample</buddy>\n  <notes>First line\n\nafter empty</notes>\n  <suit>7 mm wetsuit</suit>\n' +
         "  <cylinder size='12.0 l' workpressure='232.0 bar' description='12L Steel' o2='32.0%' start='200.0 bar' end='50.0 bar' />\n",
     );
@@ -99,8 +99,9 @@ describe.skipIf(!existsSync(join(repo, '.git')) || !ssrfPath || !existsSync(ssrf
   it("writes Subsurface's own export back identically (apart from values computed on save)", () => {
     const theirs = readFileSync(ssrfPath, 'utf8')
       .replace(/\r\n/g, '\n')
+      // otu and cns come from Subsurface's deco model, which Topside does not have; sac it computes
       .replace(/^(<dive [^>]*?)((?: (?:sac|otu|cns)='[^']*')+)/gm, (_m, head: string, computed: string) =>
-        head + computed.replace(/ (?:sac|otu|cns)='[^']*'/g, ''),
+        head + computed.replace(/ (?:otu|cns)='[^']*'/g, ''),
       );
     const ours = serializeXml(parseXml(theirs).logbook);
     const o = ours.split('\n');

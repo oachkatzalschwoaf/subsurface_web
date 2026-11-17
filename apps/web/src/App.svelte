@@ -11,6 +11,7 @@
   import InstallHint from './components/InstallHint.svelte';
   import Setup from './components/Setup.svelte';
   import ShareCard from './components/ShareCard.svelte';
+  import StatsPage from './components/StatsPage.svelte';
   import { APP_NAME } from './lib/brand.ts';
   import { locale, t } from './lib/i18n.ts';
   import { isRemote, ProxyMissingError } from './lib/sources.ts';
@@ -43,7 +44,8 @@
 
   // Wide screens (PC, tablet, phone held sideways) show the list and one dive side by side.
   const wide = new MediaQuery('(min-width: 900px)');
-  const split = $derived(wide.current && tab === 'log' && !shareDive && !editingSite);
+  const showStats = $derived(route === '#/stats');
+  const split = $derived(wide.current && tab === 'log' && !shareDive && !editingSite && !showStats);
   /** The dive on the right-hand side: the opened one, otherwise the newest. */
   const shownDive = $derived(editingDive ?? detailDive ?? (split ? (logbook?.dives.at(-1) ?? null) : null));
   function openDive(dive: Dive) {
@@ -179,9 +181,12 @@
             · ⏳ {t.pendingCount(workspace.pendingCount)}{/if}
         </small>
       </div>
-      {#if remote}
-        <button class="link" disabled={busy || !online} onclick={sync}>{busy ? t.signingIn : t.syncNow}</button>
-      {/if}
+      <div class="summary-actions">
+        <a class="link" href="#/stats">{t.stats}</a>
+        {#if remote}
+          <button class="link" disabled={busy || !online} onclick={sync}>{busy ? t.signingIn : t.syncNow}</button>
+        {/if}
+      </div>
     </section>
     <!-- Side by side the list has little height (phone held sideways), so the dives come first. -->
     {#if hintFirst}<InstallHint dismissible />{/if}
@@ -235,6 +240,10 @@
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.shareTitle}</h2>
     <ShareCard {logbook} dive={shareDive} />
+  {:else if logbook && showStats}
+    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
+    <h2>{t.stats}</h2>
+    <StatsPage {logbook} onOpen={openDive} />
   {:else if logbook && editingSite}
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.siteEditTitle}</h2>
@@ -342,6 +351,12 @@
   }
   .summary small {
     display: block;
+  }
+  .summary-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
   }
   .modal {
     position: fixed;

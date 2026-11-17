@@ -27,6 +27,7 @@ import {
   type Sample,
   type Trip,
 } from './model.ts';
+import { sacRate } from './gas.ts';
 import type { ParseResult } from './parse.ts';
 import {
   atoi,
@@ -156,6 +157,9 @@ function serializeDive(logbook: Logbook, dive: Dive): string {
     if (value) b += ` ${name}='${value}'`;
   }
   if (dive.invalid) b += " invalid='1'";
+  // computed, not read back; Subsurface writes it for data export (otu and cns need its deco model)
+  const sac = sacRate(dive);
+  if (sac > 100) b += ` sac='${Math.trunc(sac / 1000)}.${String(sac % 1000).padStart(3, '0')} l/min'`;
   if (dive.tags.length) b += ` tags='${dive.tags.map((t) => escape(t, true)).join(', ')}'`;
   if (dive.siteUuid !== null && logbook.sites.some((s) => s.uuid === dive.siteUuid)) b += ` divesiteid='${hex8(dive.siteUuid)}'`;
   if (dive.userSalinity) b += ` watersalinity='${Math.trunc(dive.userSalinity / 10)} g/l'`;

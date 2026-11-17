@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { toTm, type Dive, type Logbook, type Trip } from '@topside/core';
+  import { searchDives, toTm, type Dive, type Logbook, type Trip } from '@topside/core';
   import { formatDate, formatDateRange, formatDepth, formatMinutes, profilePath } from '../lib/format.ts';
   import { t } from '../lib/i18n.ts';
 
@@ -16,10 +16,14 @@
     dives: Dive[];
   }
 
+  let query = $state('');
+  const found = $derived(searchDives(logbook, query));
+  const searching = $derived(query.trim() !== '');
+
   // Newest first; a trip forms one group, dives without a trip are grouped by year.
   const groups = $derived.by(() => {
     const out: Group[] = [];
-    for (const dive of [...logbook.dives].reverse()) {
+    for (const dive of [...found].reverse()) {
       const key: Trip | string = dive.trip ?? `year-${toTm(dive.when).year}`;
       let group = out.find((g) => g.key === key);
       if (!group) {
@@ -37,10 +41,15 @@
 
 {#if logbook.dives.length === 0}
   <p class="hint">{t.noDives}</p>
+{:else}
+  <div class="search">
+    <input type="search" placeholder={t.search} aria-label={t.search} bind:value={query} />
+    {#if searching}<small class="hint">{t.searchCount(found.length, logbook.dives.length)}</small>{/if}
+  </div>
 {/if}
 
 {#each groups as group, i (group.key)}
-  <details class="group" open={i < 2 || (selected !== null && group.dives.includes(selected))}>
+  <details class="group" open={searching || i < 2 || (selected !== null && group.dives.includes(selected))}>
     <summary>
       <span class="title">
         <span>{group.label}</span>
@@ -73,6 +82,12 @@
 {/each}
 
 <style>
+  .search {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
   .group {
     background: var(--card);
     border: 1px solid var(--line);

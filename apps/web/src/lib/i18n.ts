@@ -279,6 +279,22 @@ const en = {
       '',
     ].join('\n'),
   signOutMedia: (n: number) => ` ${n} ${n === 1 ? 'picture is' : 'pictures are'} kept only on this device and will be deleted too.`,
+  // statistics and search
+  stats: 'Statistics',
+  statsDives: 'Dives',
+  statsTime: 'Dive time',
+  statsSac: 'Avg. air use',
+  statsSites: 'Dive sites',
+  statsRecords: 'Records',
+  statsDeepest: 'Deepest dive',
+  statsLongest: 'Longest dive',
+  statsColdest: 'Coldest water',
+  statsWarmest: 'Warmest water',
+  statsPerYear: 'Per year',
+  statsPerTrip: 'Per trip',
+  statsNote: 'Dives marked as invalid are not counted. Air use (SAC) is computed as in Subsurface.',
+  search: 'Search: site, buddy, tag, notes, #number',
+  searchCount: (n: number, total: number) => `${n} of ${total} dives`,
 };
 
 type Strings = typeof en;
@@ -566,6 +582,22 @@ const de: Strings = {
     ].join('\n'),
   signOutMedia: (n) =>
     n === 1 ? ' 1 Bild liegt nur auf diesem Gerät und wird ebenfalls gelöscht.' : ` ${n} Bilder liegen nur auf diesem Gerät und werden ebenfalls gelöscht.`,
+  // statistics and search
+  stats: 'Statistik',
+  statsDives: 'Tauchgänge',
+  statsTime: 'Tauchzeit',
+  statsSac: 'Ø Luftverbrauch',
+  statsSites: 'Tauchplätze',
+  statsRecords: 'Rekorde',
+  statsDeepest: 'Tiefster Tauchgang',
+  statsLongest: 'Längster Tauchgang',
+  statsColdest: 'Kältestes Wasser',
+  statsWarmest: 'Wärmstes Wasser',
+  statsPerYear: 'Pro Jahr',
+  statsPerTrip: 'Pro Reise',
+  statsNote: 'Als ungültig markierte Tauchgänge zählen nicht. Luftverbrauch (SAC) wie in Subsurface berechnet.',
+  search: 'Suche: Platz, Buddy, Tag, Notiz, #Nummer',
+  searchCount: (n, total) => `${n} von ${total} Tauchgängen`,
 };
 
 export const t: Strings = navigator.language.toLowerCase().startsWith('de') ? de : en;
