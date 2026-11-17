@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SyncError, type Dive, type DiveDraft, type DiveEdit, type TripChoice } from '@topside/core';
+  import { SyncError, type Dive, type DiveDraft, type DiveEdit, type SiteEdit, type TripChoice } from '@topside/core';
   import { onMount } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import AddDives from './components/AddDives.svelte';
@@ -7,6 +7,7 @@
   import DiveDetail from './components/DiveDetail.svelte';
   import DiveList from './components/DiveList.svelte';
   import EditDive from './components/EditDive.svelte';
+  import EditSite from './components/EditSite.svelte';
   import InstallHint from './components/InstallHint.svelte';
   import Setup from './components/Setup.svelte';
   import ShareCard from './components/ShareCard.svelte';
@@ -31,6 +32,10 @@
   const detailDive = $derived(routeDive('#/dive/'));
   const shareDive = $derived(routeDive('#/share/'));
   const editingDive = $derived(routeDive('#/edit/'));
+  // #/site/<uuid>
+  const editingSite = $derived(
+    route.startsWith('#/site/') ? (logbook?.sites.find((s) => String(s.uuid) === route.slice('#/site/'.length)) ?? null) : null,
+  );
   const tab = $derived(route === '#/add' ? 'add' : route === '#/data' ? 'data' : 'log');
   const remote = $derived(workspace.source !== null && isRemote(workspace.source));
   /** Dives can be changed unless the remote logbook is one Topside must not write. */
@@ -38,7 +43,7 @@
 
   // Wide screens (PC, tablet, phone held sideways) show the list and one dive side by side.
   const wide = new MediaQuery('(min-width: 900px)');
-  const split = $derived(wide.current && tab === 'log' && !shareDive);
+  const split = $derived(wide.current && tab === 'log' && !shareDive && !editingSite);
   /** The dive on the right-hand side: the opened one, otherwise the newest. */
   const shownDive = $derived(editingDive ?? detailDive ?? (split ? (logbook?.dives.at(-1) ?? null) : null));
   function openDive(dive: Dive) {
@@ -105,10 +110,19 @@
     });
   }
 
+  async function editSite(edit: SiteEdit): Promise<boolean> {
+    return saveChange(() => workspace.editSite(edit), `#/`);
+  }
+
   async function editDive(edit: DiveEdit): Promise<boolean> {
+    return saveChange(() => workspace.editDive(edit), `#/dive/${edit.when}`);
+  }
+
+  /** Save a change, upload it when possible, and go back to where the edit page was opened. */
+  async function saveChange(change: () => Promise<void>, fallback: string): Promise<boolean> {
     let ok = false;
     await run(async () => {
-      await workspace.editDive(edit);
+      await change();
       ok = true;
       if (!remote) return t.editSaved;
       if (!online) return t.editSavedOffline;
@@ -122,7 +136,7 @@
     // back to the dive the edit page was opened from; leaves no edit page in the history
     if (ok) {
       if (history.length > 1) history.back();
-      else location.replace(`#/dive/${edit.when}`);
+      else location.replace(fallback);
     }
     return ok;
   }
@@ -178,7 +192,13 @@
     {/key}
   {:else if logbook}
     {#if view?.pendingDives.has(dive)}<p class="hint">⏳ {t.notSynced}</p>{/if}
-    <DiveDetail {logbook} {dive} onShare={() => go(`#/share/${dive.when}`)} onEdit={canEdit ? () => go(`#/edit/${dive.when}`) : undefined} />
+    <DiveDetail
+      {logbook}
+      {dive}
+      onShare={() => go(`#/share/${dive.when}`)}
+      onEdit={canEdit ? () => go(`#/edit/${dive.when}`) : undefined}
+      onEditSite={canEdit && dive.siteUuid !== null && workspace.isSyncedSite(dive.siteUuid) ? () => go(`#/site/${dive.siteUuid}`) : undefined}
+    />
   {/if}
 {/snippet}
 
@@ -208,6 +228,12 @@
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.shareTitle}</h2>
     <ShareCard {logbook} dive={shareDive} />
+  {:else if logbook && editingSite}
+    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
+    <h2>{t.siteEditTitle}</h2>
+    {#key editingSite}
+      <EditSite {logbook} site={editingSite} {busy} onSave={editSite} onCancel={() => history.back()} />
+    {/key}
   {:else if logbook && split}
     <div class="split">
       <aside>{@render listPane(shownDive, false)}</aside>

@@ -238,6 +238,22 @@ const en = {
     ]
       .filter(Boolean)
       .join(' '),
+  // dive site position
+  position: 'Position',
+  coordinates: 'Coordinates',
+  posNone: 'No position',
+  posEntry: 'Entry (watch)',
+  posExit: 'Exit (watch)',
+  posHere: 'Current location',
+  posManual: 'Enter coordinates…',
+  posInvalid: 'Coordinates not recognised, e.g. 47.906674, -13.567017',
+  posLocating: 'Finding the current location…',
+  posFailed: 'Location not available.',
+  showMap: 'Show on map',
+  siteEdit: 'Edit site',
+  siteEditTitle: 'Edit dive site',
+  siteDives: (n: number) => `Applies to all ${n} ${n === 1 ? 'dive' : 'dives'} at this site.`,
+  notePosition: 'Position (optional)',
 };
 
 type Strings = typeof en;
@@ -483,6 +499,22 @@ const de: Strings = {
     ]
       .filter(Boolean)
       .join(' '),
+  // dive site position
+  position: 'Position',
+  coordinates: 'Koordinaten',
+  posNone: 'Keine Position',
+  posEntry: 'Einstieg (Uhr)',
+  posExit: 'Ausstieg (Uhr)',
+  posHere: 'Aktueller Standort',
+  posManual: 'Koordinaten eingeben…',
+  posInvalid: 'Koordinaten nicht erkannt, z. B. 47.906674, -13.567017',
+  posLocating: 'Standort wird bestimmt…',
+  posFailed: 'Standort nicht verfügbar.',
+  showMap: 'Auf der Karte zeigen',
+  siteEdit: 'Platz bearbeiten',
+  siteEditTitle: 'Tauchplatz bearbeiten',
+  siteDives: (n) => `Gilt für ${n === 1 ? 'den einen Tauchgang' : `alle ${n} Tauchgänge`} an diesem Platz.`,
+  notePosition: 'Position (optional)',
 };
 
 export const t: Strings = navigator.language.toLowerCase().startsWith('de') ? de : en;

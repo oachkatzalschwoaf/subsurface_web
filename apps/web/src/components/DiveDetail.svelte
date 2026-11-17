@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CYLINDER_USE, MANUAL_DIVE_MODEL, type Dive, type Logbook } from '@topside/core';
+  import { CYLINDER_USE, formatCoordinates, MANUAL_DIVE_MODEL, type Dive, type Location, type Logbook } from '@topside/core';
   import { summary } from '../lib/dive-data.ts';
   import { formatDate } from '../lib/format.ts';
   import { locale, t } from '../lib/i18n.ts';
@@ -10,7 +10,21 @@
     dive,
     onShare,
     onEdit,
-  }: { logbook: Logbook; dive: Dive; onShare: () => void; onEdit?: (() => void) | undefined } = $props();
+    onEditSite,
+  }: {
+    logbook: Logbook;
+    dive: Dive;
+    onShare: () => void;
+    onEdit?: (() => void) | undefined;
+    onEditSite?: (() => void) | undefined;
+  } = $props();
+
+  const site = $derived(logbook.sites.find((s) => s.uuid === dive.siteUuid) ?? null);
+  const mapUrl = (l: Location) => {
+    const lat = (l.lat / 1e6).toFixed(6);
+    const lon = (l.lon / 1e6).toFixed(6);
+    return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=15/${lat}/${lon}`;
+  };
 
   const info = $derived(summary(logbook, dive));
   const one = new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -60,6 +74,18 @@
 </section>
 
 <div class="info">
+{#if site}
+  <section class="card">
+    <dl>
+      <dt>{t.site}</dt>
+      <dd>
+        {site.name || '—'}
+        {#if site.location}<br /><a href={mapUrl(site.location)} target="_blank" rel="noopener noreferrer">{formatCoordinates(site.location)} ↗</a>{/if}
+      </dd>
+    </dl>
+    {#if onEditSite}<button class="link edit-site" onclick={onEditSite}>{t.siteEdit}</button>{/if}
+  </section>
+{/if}
 {#if people.length || dive.rating || dive.visibility}
   <section class="card">
     <dl>
@@ -107,6 +133,13 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 12px;
+  }
+  .edit-site {
+    align-self: flex-start;
+  }
+  dd a {
+    color: var(--muted);
+    font-size: 0.9rem;
   }
   .actions {
     display: flex;

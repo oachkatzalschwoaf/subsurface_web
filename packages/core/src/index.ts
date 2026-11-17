@@ -19,7 +19,17 @@ export {
   type SiteChoice,
   type TripChoice,
 } from './app/drafts.ts';
-export { applyEdit, changedDetails, detailsOf, isEmptyEdit, type DiveEdit } from './app/edits.ts';
+export {
+  applyEdit,
+  applySiteEdit,
+  changedDetails,
+  detailsOf,
+  formatCoordinates,
+  isEmptyEdit,
+  parseCoordinates,
+  type DiveEdit,
+  type SiteEdit,
+} from './app/edits.ts';
 export { applyNote, canBecomeDive, draftFromNote, MANUAL_DIVE_MODEL, matchNotes, newNote, type DiveNote } from './app/notes.ts';
 export {
   applyPreset,

@@ -7,9 +7,16 @@
  */
 import { findSameDive, type FitImport } from '../garmin/fit-import.ts';
 import { appendDives, createSite, createTrip, listTrips } from '../subsurface/edit.ts';
-import { newCylinder, type Dive, type Logbook, type Trip } from '../subsurface/model.ts';
+import { newCylinder, type Dive, type Location, type Logbook, type Trip } from '../subsurface/model.ts';
 
-export type SiteChoice = { kind: 'none' } | { kind: 'existing'; uuid: number } | { kind: 'new'; name: string };
+export type SiteChoice =
+  | { kind: 'none' }
+  | { kind: 'existing'; uuid: number }
+  /**
+   * `location` is the position of a new site; when it is missing (drafts stored by older versions)
+   * the dive computer's entry point is used.
+   */
+  | { kind: 'new'; name: string; location?: Location | null };
 
 export type TripChoice =
   | { kind: 'none' }
@@ -145,7 +152,8 @@ export function applyDrafts(logbook: Logbook, drafts: readonly DiveDraft[], trip
       dive.siteUuid = uuid;
     } else if (draft.site.kind === 'new' && draft.site.name.trim()) {
       const name = draft.site.name.trim();
-      const site = logbook.sites.find((s) => s.name === name) ?? createSite(logbook, name, draft.fit.entry);
+      const location = draft.site.location !== undefined ? draft.site.location : draft.fit.entry;
+      const site = logbook.sites.find((s) => s.name === name) ?? createSite(logbook, name, location);
       dive.siteUuid = site.uuid;
     }
 

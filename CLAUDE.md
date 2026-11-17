@@ -66,7 +66,7 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   drafts that describe user input independently of a logbook copy and are applied later.
   `app/presets.ts`: equipment presets (never pressures) and suggestions taken from the logbook
   (cylinder types, suits, buddies); the web app keeps presets in `localStorage` (`lib/gear.ts`).
-  `app/edits.ts`: changes to existing dives as field-level edits keyed by the dive's start time,
+  `app/edits.ts`: changes to existing dives (field-level, keyed by the dive's start time) and sites,
   applied to a freshly fetched logbook at sync. `app/notes.ts`: notes taken before a FIT file
   exists, matched to dives by time, or turned into a dive without samples (model
   "manually added dive", for which Subsurface draws a stand-in profile).

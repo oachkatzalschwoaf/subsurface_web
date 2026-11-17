@@ -68,8 +68,14 @@ export function commitMessageForNewDives(logbook: Logbook, dives: readonly Dive[
   return commitMessageForChanges(logbook, dives, [], userAgent);
 }
 
-/** Like commitMessageForNewDives(), for a commit that adds dives and changes existing ones. */
-export function commitMessageForChanges(logbook: Logbook, added: readonly Dive[], edited: readonly Dive[], userAgent: string): string {
+/** Like commitMessageForNewDives(), for a commit that adds dives and changes dives and sites. */
+export function commitMessageForChanges(
+  logbook: Logbook,
+  added: readonly Dive[],
+  edited: readonly Dive[],
+  userAgent: string,
+  sites: readonly DiveSite[] = [],
+): string {
   const line = (verb: string) => (dive: Dive) => {
     const site = logbook.sites.find((s) => s.uuid === dive.siteUuid)?.name;
     const label = dive.number ? `#${dive.number}` : 'unnumbered';
@@ -77,6 +83,10 @@ export function commitMessageForChanges(logbook: Logbook, added: readonly Dive[]
   };
   const byTime = (dives: readonly Dive[]) => [...new Set(dives)].sort((a, b) => a.when - b.when);
   // a dive that was added and then edited in the same commit is just an added one
-  const lines = [...byTime(added).map(line('Add')), ...byTime(edited.filter((d) => !added.includes(d))).map(line('Edit'))];
+  const lines = [
+    ...byTime(added).map(line('Add')),
+    ...byTime(edited.filter((d) => !added.includes(d))).map(line('Edit')),
+    ...[...new Set(sites)].map((site) => `Edit dive site "${site.name}"`),
+  ];
   return `Changes made: \n\n${lines.join('\n')}\n\nCreated by ${userAgent}\n`;
 }

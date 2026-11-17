@@ -9,6 +9,7 @@
 import {
   applyDrafts,
   applyEdit,
+  applySiteEdit,
   commitMessageForChanges,
   commitMessageForNewDives,
   fetchLogbook,
@@ -28,6 +29,8 @@ import {
   type Dive,
   type DiveDraft,
   type DiveEdit,
+  type DiveSite,
+  type SiteEdit,
   type DiveNote,
   type GitTree,
   type Logbook,
@@ -78,6 +81,7 @@ export class EmptyRemoteError extends Error {}
 const WORKSPACE_KEY = 'workspace';
 const PENDING_KEY = 'pending';
 const EDITS_KEY = 'edits';
+const SITE_EDITS_KEY = 'siteEdits';
 const NOTES_KEY = 'notes';
 
 /** Two edits of the same dive as one: the later one wins field by field. */
@@ -88,6 +92,11 @@ function mergeEdit(edits: DiveEdit[], edit: DiveEdit): DiveEdit[] {
   const site = edit.site ?? earlier.site;
   if (site) merged.site = site;
   return edits.map((e) => (e === earlier ? merged : e));
+}
+
+function mergeSiteEdit(edits: SiteEdit[], edit: SiteEdit): SiteEdit[] {
+  const earlier = edits.find((e) => e.uuid === edit.uuid);
+  return earlier ? edits.map((e) => (e === earlier ? { ...earlier, ...edit } : e)) : [...edits, edit];
 }
 
 export function emptyLogbook(): Logbook {
@@ -110,6 +119,8 @@ class Workspace {
   pending = $state.raw<PendingBatch[]>([]);
   /** Changes to dives already in the logbook, not synced yet. */
   edits = $state.raw<DiveEdit[]>([]);
+  /** Changes to dive sites, not synced yet. */
+  siteEdits = $state.raw<SiteEdit[]>([]);
   /** Notes for dives whose FIT file does not exist yet. Kept on this device only. */
   notes = $state.raw<DiveNote[]>([]);
   /** Why the current logbook must not be written. */
@@ -138,10 +149,11 @@ class Workspace {
       const dive = applyEdit(logbook, edit);
       if (dive) pendingDives.add(dive);
     }
+    for (const edit of this.siteEdits) applySiteEdit(logbook, edit);
     return { logbook, pendingDives };
   });
 
-  pendingCount = $derived(this.pending.reduce((n, b) => n + b.drafts.length, 0) + this.edits.length);
+  pendingCount = $derived(this.pending.reduce((n, b) => n + b.drafts.length, 0) + this.edits.length + this.siteEdits.length);
   label = $derived(this.source ? sourceLabel(this.source) : '');
 
   async load(): Promise<void> {
@@ -156,6 +168,7 @@ class Workspace {
       }
       this.pending = (await dbGet<PendingBatch[]>(PENDING_KEY)) ?? [];
       this.edits = (await dbGet<DiveEdit[]>(EDITS_KEY)) ?? [];
+      this.siteEdits = (await dbGet<SiteEdit[]>(SITE_EDITS_KEY)) ?? [];
       this.notes = (await dbGet<DiveNote[]>(NOTES_KEY)) ?? [];
     } finally {
       this.loaded = true;
@@ -181,6 +194,11 @@ class Workspace {
   private async saveEdits(edits: DiveEdit[]): Promise<void> {
     await dbSet(EDITS_KEY, edits);
     this.edits = edits;
+  }
+
+  private async saveSiteEdits(edits: SiteEdit[]): Promise<void> {
+    await dbSet(SITE_EDITS_KEY, edits);
+    this.siteEdits = edits;
   }
 
   // ---- Notes ------------------------------------------------------------------------------------
@@ -241,6 +259,7 @@ class Workspace {
     await dbDelete(WORKSPACE_KEY);
     await dbDelete(PENDING_KEY);
     await dbDelete(EDITS_KEY);
+    await dbDelete(SITE_EDITS_KEY);
     if (!keepNotes) {
       await dbDelete(NOTES_KEY);
       this.notes = [];
@@ -250,6 +269,7 @@ class Workspace {
     this.commit = null;
     this.pending = [];
     this.edits = [];
+    this.siteEdits = [];
     this.problems = [];
     this.secret = null;
     navigator.credentials?.preventSilentAccess?.();
@@ -277,6 +297,7 @@ class Workspace {
   async discardPending(): Promise<void> {
     await this.savePending([]);
     await this.saveEdits([]);
+    await this.saveSiteEdits([]);
   }
 
   // ---- Editing dives ----------------------------------------------------------------------------
@@ -294,6 +315,23 @@ class Workspace {
       return;
     }
     await this.saveEdits(mergeEdit(this.edits, structuredClone(edit)));
+  }
+
+  /** Change a dive site; like editDive(). Only sites that are already synced can be changed. */
+  async editSite(edit: SiteEdit): Promise<void> {
+    if (!this.source || !this.tree) throw new Error('No logbook');
+    if (this.source.kind === 'local') {
+      const logbook = parseLogbook(this.tree).logbook;
+      if (!applySiteEdit(logbook, edit)) throw new Error('This dive site is no longer in the logbook');
+      await this.save(this.source, serializeLogbook(logbook), null);
+      return;
+    }
+    await this.saveSiteEdits(mergeSiteEdit(this.siteEdits, structuredClone(edit)));
+  }
+
+  /** Whether a site can be edited: it must exist in the synced logbook, not only in a pending dive. */
+  isSyncedSite(uuid: number): boolean {
+    return this.logbook?.sites.some((s) => s.uuid === uuid) ?? false;
   }
 
   // ---- Syncing ----------------------------------------------------------------------------------
@@ -328,20 +366,27 @@ class Workspace {
         if (dive) edited.push(dive);
         else skipped++;
       }
-      if (added.length === 0 && edited.length === 0) {
+      const sites: DiveSite[] = [];
+      for (const edit of this.siteEdits) {
+        const site = applySiteEdit(logbook, edit);
+        if (site) sites.push(site);
+      }
+      if (added.length === 0 && edited.length === 0 && sites.length === 0) {
         await this.save(source, snapshot.tree, snapshot.commit);
         await this.savePending([]);
         await this.saveEdits([]);
+        await this.saveSiteEdits([]);
         return { added, skipped, edited: 0 };
       }
       try {
-        const message = commitMessageForChanges(logbook, added, edited, agent());
+        const message = commitMessageForChanges(logbook, added, edited, agent(), sites);
         const commit = await pushLogbook(env, remote, snapshot, logbook, commitInfo(remote, message));
         await this.save(source, serializeLogbook(logbook), commit);
         await this.savePending([]);
         await this.saveEdits([]);
+        await this.saveSiteEdits([]);
         await rememberSecret(credentialId(source), secret, sourceLabel(source));
-        return { added, skipped, edited: edited.length };
+        return { added, skipped, edited: edited.length + sites.length };
       } catch (error) {
         if (error instanceof SyncError && error.kind === 'conflict' && attempt < 2) continue;
         throw error;

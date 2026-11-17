@@ -5,7 +5,7 @@
  * become a dive without a profile if no file ever comes.
  */
 import type { FitImport } from '../garmin/fit-import.ts';
-import { newDive, newDiveComputer } from '../subsurface/model.ts';
+import { newDive, newDiveComputer, type Location } from '../subsurface/model.ts';
 import { emptyDetails, newDraft, type DiveDetails, type DiveDraft } from './drafts.ts';
 
 export interface DiveNote extends DiveDetails {
@@ -13,6 +13,8 @@ export interface DiveNote extends DiveDetails {
   /** Roughly when the dive was, in the same local-time seconds as Dive.when */
   when: number;
   siteName: string;
+  /** Where the note was taken, if the phone knew; used for a new site when the FIT file has none */
+  location: Location | null;
   /** Metres; only needed to save the note as a dive without a profile */
   maxDepth: number | null;
   /** Minutes; as above */
@@ -23,7 +25,7 @@ export interface DiveNote extends DiveDetails {
 export const MANUAL_DIVE_MODEL = 'manually added dive';
 
 export function newNote(id: string, when: number): DiveNote {
-  return { ...emptyDetails(), id, when, siteName: '', maxDepth: null, duration: null };
+  return { ...emptyDetails(), id, when, siteName: '', location: null, maxDepth: null, duration: null };
 }
 
 const BEFORE = 45 * 60;
@@ -74,7 +76,11 @@ export function applyNote(draft: DiveDraft, note: DiveNote, keepGas = false): vo
     if (note[key] !== null) draft[key] = note[key];
   }
   if (note.cylinderO2 !== null && !keepGas) draft.cylinderO2 = note.cylinderO2;
-  if (note.siteName.trim() && draft.site.kind === 'none') draft.site = { kind: 'new', name: note.siteName.trim() };
+  if (note.siteName.trim() && draft.site.kind === 'none') {
+    // the watch's GPS fix at the dive is better than where the phone was when the note was taken
+    const location = draft.fit.entry ?? draft.fit.exit ?? note.location ?? null;
+    draft.site = { kind: 'new', name: note.siteName.trim(), location };
+  }
 }
 
 /** True when the note has what a dive without a profile needs. */
@@ -88,7 +94,8 @@ export function draftFromNote(note: DiveNote): DiveDraft {
   computer.model = MANUAL_DIVE_MODEL;
   computer.maxDepth = Math.round(note.maxDepth! * 1000);
   dive.computers.push(computer);
-  const fit: FitImport = { dive, entry: null, exit: null, activityId: null, manualEntry: true, utcOffset: null, fileName: `note-${note.id}` };
+  const location = note.location ?? null;
+  const fit: FitImport = { dive, entry: location, exit: null, activityId: null, manualEntry: true, utcOffset: null, fileName: `note-${note.id}` };
   const draft = newDraft(fit);
   applyNote(draft, note);
   return draft;

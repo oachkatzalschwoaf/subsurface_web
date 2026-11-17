@@ -6,7 +6,7 @@
  * fetched logbook without undoing what somebody else changed in other fields meanwhile.
  */
 import { createSite } from '../subsurface/edit.ts';
-import { newCylinder, type Dive, type Logbook } from '../subsurface/model.ts';
+import { newCylinder, type Dive, type DiveSite, type Location, type Logbook } from '../subsurface/model.ts';
 import { milli, o2Permille, splitTags, type DiveDetails, type SiteChoice } from './drafts.ts';
 
 export interface DiveEdit {
@@ -123,4 +123,54 @@ export function applyEdit(logbook: Logbook, edit: DiveEdit): Dive | null {
     dive.siteUuid = (logbook.sites.find((s) => s.name === name) ?? createSite(logbook, name, position)).uuid;
   }
   return dive;
+}
+
+// ---- Dive sites -----------------------------------------------------------------------------
+
+/** A change to a dive site, which affects every dive there. */
+export interface SiteEdit {
+  uuid: number;
+  name?: string;
+  /** null = no position */
+  location?: Location | null;
+}
+
+/** Apply a site edit. Returns the changed site, or null if the logbook no longer has it. */
+export function applySiteEdit(logbook: Logbook, edit: SiteEdit): DiveSite | null {
+  const site = logbook.sites.find((s) => s.uuid === edit.uuid);
+  if (!site) return null;
+  if (edit.name !== undefined && edit.name.trim()) site.name = edit.name.trim();
+  if (edit.location !== undefined) site.location = edit.location === null ? null : { ...edit.location };
+  return site;
+}
+
+/** Decimal degrees with 6 places, as Subsurface writes them: "47.906674, -13.567017". */
+export function formatCoordinates(location: Location): string {
+  const degrees = (micro: number) => (micro / 1e6).toFixed(6);
+  return `${degrees(location.lat)}, ${degrees(location.lon)}`;
+}
+
+/**
+ * Coordinates typed in or pasted from a map: "47.906674, -13.567017", "47.906674 -13.567017",
+ * "47,906674; -13,567017", "N 47.906674 W 13.567017" or "47.906674N 13.567017W".
+ * Returns null for anything else.
+ */
+export function parseCoordinates(text: string): Location | null {
+  const tokens = text.toUpperCase().match(/[NSEW]|[-+]?\d+(?:[.,]\d+)?/g) ?? [];
+  const numbers = tokens.flatMap((t, at) => (/^[NSEW]$/.test(t) ? [] : [{ number: t, at }]));
+  if (numbers.length !== 2) return null;
+  // Letters either all come before their number ("N 47.9 W 13.5") or all after it ("47.9N 13.5W").
+  const prefixed = /^[NSEW]$/.test(tokens[0] ?? '');
+  const values = numbers.map(({ number, at }) => {
+    const neighbour = tokens[prefixed ? at - 1 : at + 1] ?? '';
+    const hemisphere = /^[NSEW]$/.test(neighbour) ? neighbour : '';
+    const value = Number(number.replace(',', '.'));
+    return { hemisphere, value: hemisphere === 'S' || hemisphere === 'W' ? -Math.abs(value) : value };
+  });
+  let [lat, lon] = values as [(typeof values)[0], (typeof values)[0]];
+  // "E 13.5 N 47.9": latitude second
+  if (lat.hemisphere === 'E' || lat.hemisphere === 'W' || lon.hemisphere === 'N' || lon.hemisphere === 'S') [lat, lon] = [lon, lat];
+  if (!Number.isFinite(lat.value) || !Number.isFinite(lon.value) || Math.abs(lat.value) > 90 || Math.abs(lon.value) > 180) return null;
+  if (lat.value === 0 && lon.value === 0) return null;
+  return { lat: Math.round(lat.value * 1e6), lon: Math.round(lon.value * 1e6) };
 }

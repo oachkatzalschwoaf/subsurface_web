@@ -5,6 +5,7 @@
   import { t } from '../lib/i18n.ts';
   import { inputToWhen, whenToInput } from '../lib/time.ts';
   import DetailsFields from './DetailsFields.svelte';
+  import PositionField from './PositionField.svelte';
 
   let {
     logbook,
@@ -42,6 +43,7 @@
     <input list="{uid}-sites" bind:value={note.siteName} />
     <datalist id="{uid}-sites">{#each sites as s}<option value={s}></option>{/each}</datalist>
   </label>
+  <PositionField bind:location={note.location} />
   {#if presets.length > 0 || lastGear}
     <label>
       {t.gearPreset}

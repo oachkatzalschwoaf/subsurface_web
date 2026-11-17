@@ -32,6 +32,7 @@
   import { workspace } from '../lib/workspace.svelte.ts';
   import DetailsFields from './DetailsFields.svelte';
   import NoteForm from './NoteForm.svelte';
+  import PositionField from './PositionField.svelte';
 
   let {
     logbook,
@@ -220,7 +221,15 @@
 
   const siteKey = (d: DiveDraft) => (d.site.kind === 'existing' ? String(d.site.uuid) : d.site.kind);
   function setSite(d: DiveDraft, key: string) {
-    d.site = key === 'none' ? { kind: 'none' } : key === 'new' ? { kind: 'new', name: '' } : { kind: 'existing', uuid: Number(key) };
+    d.site =
+      key === 'none' ? { kind: 'none' } : key === 'new' ? { kind: 'new', name: '', location: d.fit.entry } : { kind: 'existing', uuid: Number(key) };
+  }
+  /** Positions the watch recorded: entry and, if different, exit. */
+  function watchPositions(d: DiveDraft) {
+    const out = d.fit.entry ? [{ label: t.posEntry, location: d.fit.entry }] : [];
+    const exit = d.fit.exit;
+    if (exit && !(d.fit.entry && d.fit.entry.lat === exit.lat && d.fit.entry.lon === exit.lon)) out.push({ label: t.posExit, location: exit });
+    return out;
   }
 </script>
 
@@ -335,6 +344,7 @@
         </label>
         {#if d.site.kind === 'new'}
           <label>{t.siteName}<input bind:value={d.site.name} /></label>
+          <PositionField bind:location={d.site.location} suggestions={watchPositions(d)} />
         {/if}
 
         <DetailsFields bind:details={drafts[i]!} {logbook} recordedMix={hasRecordedMix(d)} />
