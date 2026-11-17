@@ -178,6 +178,7 @@
 
 <section class="card">
   <LanguagePicker disabled={busy} />
+  <p class="about"><a href="https://subsurface-divelog.org/" target="_blank" rel="noopener">{t.aboutSubsurface} ↗</a></p>
 </section>
 
 <InstallHint />

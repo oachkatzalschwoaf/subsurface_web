@@ -245,7 +245,7 @@
 {#key uiLang}
 <div class="topbar">
   <header>
-    <h1>{APP_NAME} <small>{t.appFor}</small></h1>
+    <h1><a href="#/">{APP_NAME} <small>{t.appFor}</small></a></h1>
     {#if !online}<span class="badge">{t.offline}</span>{/if}
   </header>
 

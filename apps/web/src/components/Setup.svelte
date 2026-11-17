@@ -83,6 +83,7 @@
   </section>
   <section class="card language">
     <LanguagePicker disabled={busy} />
+    <p class="about"><a href="https://subsurface-divelog.org/" target="_blank" rel="noopener">{t.aboutSubsurface} ↗</a></p>
   </section>
 {:else}
   <button class="link back" onclick={() => (kind = null)}>← {t.back}</button>
