@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#0b5c8a" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <title>Topside – Help</title>
+    <script type="module" crossorigin src="./assets/help-B22Ko7xw.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-P2Xu9kJm.js">
+    <link rel="stylesheet" crossorigin href="./assets/help-DR-YbZ47.css">
+  </head>
+  <body>
+    <!--
+      Help for the app, German and English side by side: every section holds one <article> per
+      language; src/help/help.ts shows one language, builds the contents and filters by search.
+      The app links here with the section of the page it is on (help.html#share, …).
+    -->
+    <header class="bar">
+      <a class="app" href="./">Topside</a>
+      <input id="search" type="search" autocomplete="off" />
+      <button id="lang" type="button"></button>
+    </header>
+
+    <main>
+      <h1 lang="de">Hilfe</h1>
+      <h1 lang="en">Help</h1>
+      <nav id="contents"></nav>
+      <p id="none" hidden><span lang="de">Nichts gefunden.</span><span lang="en">Nothing found.</span></p>
+
+      <section id="start">
+        <article lang="de">
+          <h2>Anmelden und Logbuch wählen</h2>
+          <p>Beim ersten Öffnen wählst du, wo das Logbuch liegt:</p>
+          <ul>
+            <li><strong>Subsurface Cloud</strong>: dasselbe Logbuch, das Subsurface Desktop und Mobile synchronisieren. E-Mail und Passwort der Subsurface-Cloud; unter „Erweitert“ lässt sich der Cloud-Server wählen.</li>
+            <li><strong>Eigenes git-Repository</strong>: GitHub, GitLab oder ein eigener Server, unabhängig von der Subsurface-Cloud. Nötig sind die https-Adresse, der Branch, der Benutzername und ein Passwort oder Zugriffstoken. Bei GitHub: ein „fine-grained personal access token“ mit Lese- und Schreibrecht auf „Contents“ dieses Repositorys. Der git-Server muss auf dem Server dieser Seite freigeschaltet sein.</li>
+            <li><strong>Nur auf diesem Gerät</strong>: ohne Konto. Leer beginnen oder mit einer .ssrf-Datei bzw. einem Backup. Die Daten liegen nur in diesem Browser, also regelmäßig exportieren.</li>
+          </ul>
+          <p>Passwort und Token bleiben nur im Arbeitsspeicher; die App speichert sie nicht. Fragt sie später danach, kann der Passwort-Manager des Browsers aushelfen.</p>
+          <p>Ist ein Repository noch leer, beginnt es mit einem leeren Logbuch oder mit einer .ssrf-Datei bzw. einem Backup.</p>
+        </article>
+        <article lang="en">
+          <h2>Signing in and choosing a logbook</h2>
+          <p>On first use you choose where the logbook lives:</p>
+          <ul>
+            <li><strong>Subsurface Cloud</strong>: the same logbook Subsurface Desktop and Mobile sync with. E-mail and password of the Subsurface cloud; "Advanced" lets you pick the cloud server.</li>
+            <li><strong>Own git repository</strong>: GitHub, GitLab or your own server, independent of the Subsurface cloud. You need the https address, the branch, the user name and a password or access token. On GitHub: a fine-grained personal access token with read and write access to "Contents" of this repository. The git server must be allowed on the server of this page.</li>
+            <li><strong>Only on this device</strong>: no account. Start empty or from an .ssrf file or a backup. The data stays in this browser only, so export regularly.</li>
+          </ul>
+          <p>Passwords and tokens stay in memory only; the app does not store them. If it asks again later, the browser's password manager can fill them in.</p>
+          <p>An empty repository starts with an empty logbook or with an .ssrf file or backup.</p>
+        </article>
+      </section>
+
+      <section id="install">
+        <article lang="de">
+          <h2>Als App installieren</h2>
+          <p>Android: in Chrome Menü ⋮ → „Zum Startbildschirm hinzufügen“ oder „App installieren“. iPhone: in Safari Teilen → „Zum Home-Bildschirm“. Die App öffnet dann im Vollbild und funktioniert offline.</p>
+        </article>
+        <article lang="en">
+          <h2>Installing as an app</h2>
+          <p>Android: in Chrome, menu ⋮ → "Add to home screen" or "Install app". iPhone: in Safari, Share → "Add to Home Screen". The app then opens full screen and works offline.</p>
+        </article>
+      </section>
+
+      <section id="import">
+        <article lang="de">
+          <h2>Neue Tauchgänge (FIT-Import)</h2>
+          <ol>
+            <li>In Garmin Connect die Aktivität öffnen → Zahnrad → „Datei exportieren“. Das ergibt eine FIT- oder ZIP-Datei.</li>
+            <li>Im Reiter <em>Neu</em> „FIT- oder ZIP-Dateien wählen“; mehrere auf einmal gehen auch.</li>
+            <li>Tauchgänge, die schon im Logbuch sind, und Aktivitäten, die keine Tauchgänge sind, werden erkannt und übersprungen.</li>
+            <li>Für jeden Tauchgang Reise und Tauchplatz wählen oder neu anlegen. Ein neuer Platz bekommt seine Position vom Eintauchpunkt der Uhr, sonst vom Auftauchpunkt; alternativ der aktuelle Standort, eingegebene Koordinaten oder keine Position.</li>
+            <li>Angaben ergänzen: Buddy, Guide, Anzug, Flasche und Gas, Drücke, Blei, Bewertung, Sicht, Tags, Notizen. „Für alle übernehmen“ kopiert Angaben in alle Tauchgänge.</li>
+            <li>Hochladen bzw. Hinzufügen. Ohne Netz bleiben die Tauchgänge auf dem Gerät und werden beim nächsten Synchronisieren hochgeladen.</li>
+          </ol>
+          <p><strong>Ausrüstungs-Vorlagen</strong> füllen Anzug, Flasche, Gas, Blei, Buddy, Guide und Tags für alle Tauchgänge auf einmal; Drücke bleiben je Tauchgang. „Als Vorlage speichern“ legt eine an, „Zuletzt verwendet“ nimmt die Angaben vom letzten Mal.</p>
+        </article>
+        <article lang="en">
+          <h2>New dives (FIT import)</h2>
+          <ol>
+            <li>In Garmin Connect open the activity → gear icon → "Export File". This gives a FIT or ZIP file.</li>
+            <li>In the <em>New</em> tab, "Choose FIT or ZIP files"; several at once work too.</li>
+            <li>Dives already in the logbook and activities that are not dives are recognised and skipped.</li>
+            <li>For each dive choose a trip and a dive site, or create them. A new site takes its position from the watch's entry point, otherwise its exit point; or the current location, entered coordinates or no position.</li>
+            <li>Add details: buddy, guide, suit, cylinder and gas, pressures, weights, rating, visibility, tags, notes. "Copy to all dives" copies details to every dive.</li>
+            <li>Upload or add. Without network the dives stay on the device and are uploaded with the next sync.</li>
+          </ol>
+          <p><strong>Equipment presets</strong> fill suit, cylinder, gas, weights, buddy, guide and tags for all dives at once; pressures stay per dive. "Save as preset" creates one, "Last used" takes the details from last time.</p>
+        </article>
+      </section>
+
+      <section id="notes">
+        <article lang="de">
+          <h2>Notizen vor der FIT-Datei</h2>
+          <p>Kein Netz auf dem Boot? Im Reiter <em>Neu</em> gleich nach dem Tauchgang eine Notiz anlegen: ungefähre Uhrzeit, Drücke, Buddy, optional die Position. Kommt später die FIT-Datei, wird die Notiz über die Uhrzeit zugeordnet und füllt das Formular.</p>
+          <p>Kommt keine FIT-Datei, mit maximaler Tiefe und Tauchzeit „Als Tauchgang ohne Profil übernehmen“. Subsurface zeichnet dafür ein Ersatzprofil.</p>
+        </article>
+        <article lang="en">
+          <h2>Notes before the FIT file</h2>
+          <p>No network on the boat? In the <em>New</em> tab, take a note right after the dive: rough time, pressures, buddy, optionally the position. When the FIT file arrives later, the note is matched by time and fills in the form.</p>
+          <p>If no FIT file will come, enter max. depth and dive time and use "Add as dive without profile". Subsurface draws a stand-in profile for it.</p>
+        </article>
+      </section>
+
+      <section id="log">
+        <article lang="de">
+          <h2>Logbuch und Suche</h2>
+          <p>Der Reiter <em>Logbuch</em> listet die Tauchgänge nach Reisen, mit dem Zeitraum jeder Reise. Das Suchfeld findet Tauchplatz, Buddy, Tag, Notiz oder eine Nummer (<code>#12</code>). Noch nicht synchronisierte Tauchgänge tragen ⏳.</p>
+          <p>Auf breiten Bildschirmen (PC, Tablet, Handy quer) stehen Liste und Tauchgang nebeneinander. Ein Tipp auf den App-Namen oben führt zurück zum Logbuch.</p>
+        </article>
+        <article lang="en">
+          <h2>Logbook and search</h2>
+          <p>The <em>Logbook</em> tab lists the dives by trip, with the date range of each trip. The search field finds site, buddy, tag, notes or a number (<code>#12</code>). Dives not synced yet carry ⏳.</p>
+          <p>On wide screens (PC, tablet, phone held sideways) the list and the dive are side by side. Tapping the app name at the top leads back to the logbook.</p>
+        </article>
+      </section>
+
+      <section id="dive">
+        <article lang="de">
+          <h2>Tauchgang ansehen</h2>
+          <p>Die Tauchgang-Seite zeigt die wichtigsten Werte, das Tiefenprofil und, falls aufgezeichnet, Temperatur und Puls als eigene Streifen auf derselben Zeitachse. Antippen oder Überfahren zeigt die Werte zu diesem Zeitpunkt und die Ereignisse der Uhr (Warnungen, Gaswechsel).</p>
+          <p>Von hier aus: <em>Bearbeiten</em>, <em>Bild teilen</em>, <em>Bilder hinzufügen</em>, <em>Platz bearbeiten</em>.</p>
+        </article>
+        <article lang="en">
+          <h2>Viewing a dive</h2>
+          <p>The dive page shows the main numbers, the depth profile and, where recorded, temperature and heart rate as bands of their own on the same time axis. Tapping or hovering shows the values at that moment and the watch's events (warnings, gas changes).</p>
+          <p>From here: <em>Edit</em>, <em>Share image</em>, <em>Add pictures</em>, <em>Edit site</em>.</p>
+        </article>
+      </section>
+
+      <section id="edit">
+        <article lang="de">
+          <h2>Bearbeiten und Löschen</h2>
+          <ul>
+            <li><strong>Tauchgang bearbeiten</strong>: dieselben Angaben wie beim Import. Hat ein Tauchgang mehrere Flaschen oder Bleiangaben, ändert die App nur die erste.</li>
+            <li><strong>Tauchgang löschen</strong>: unten auf der Bearbeiten-Seite. Die anderen Tauchgänge behalten ihre Nummern, wie in Subsurface.</li>
+            <li><strong>Platz bearbeiten</strong>: Name und Position; gilt für alle Tauchgänge an diesem Platz.</li>
+            <li><strong>Reise bearbeiten</strong>: über den Kopf der Reise in der Liste; Name bzw. Ort und Notizen.</li>
+          </ul>
+          <p>Änderungen werden wie neue Tauchgänge synchronisiert; ohne Netz warten sie auf dem Gerät.</p>
+        </article>
+        <article lang="en">
+          <h2>Editing and deleting</h2>
+          <ul>
+            <li><strong>Edit dive</strong>: the same details as at import. If a dive has several cylinders or weights, the app changes only the first one.</li>
+            <li><strong>Delete dive</strong>: at the bottom of the edit page. The other dives keep their numbers, as in Subsurface.</li>
+            <li><strong>Edit site</strong>: name and position; applies to all dives at that site.</li>
+            <li><strong>Edit trip</strong>: from the trip's header in the list; name or location and notes.</li>
+          </ul>
+          <p>Changes are synced like new dives; without network they wait on the device.</p>
+        </article>
+      </section>
+
+      <section id="pictures">
+        <article lang="de">
+          <h2>Bilder</h2>
+          <p>Auf der Tauchgang-Seite „Bilder hinzufügen“. Die Bilder bleiben auf diesem Gerät; das Logbuch bekommt nur einen Verweis (<code>Topside/&lt;Datum Zeit Platz&gt;/&lt;Name&gt;</code>), der Zeitpunkt im Tauchgang kommt aus den Exif-Daten.</p>
+          <p>Auf den PC kommen sie mit dem Voll-Export (<em>Daten</em>): ZIP entpacken, dann in Subsurface Datei → „Verschobene Mediendateien suchen“ und den entpackten Ordner wählen.</p>
+        </article>
+        <article lang="en">
+          <h2>Pictures</h2>
+          <p>On the dive page, "Add pictures". The pictures stay on this device; the logbook only gets a reference (<code>Topside/&lt;date time site&gt;/&lt;name&gt;</code>), and the moment in the dive comes from the Exif data.</p>
+          <p>They get to the PC with the full export (<em>Data</em>): unpack the ZIP, then in Subsurface use File → "Find moved media files" and pick the unpacked folder.</p>
+        </article>
+      </section>
+
+      <section id="share">
+        <article lang="de">
+          <h2>Bild zum Teilen</h2>
+          <ul>
+            <li><strong>Hintergrund</strong>: transparent, Farbverlauf (Farben des Schemas), einfarbig oder ein eigenes Bild. Die Bilder des Tauchgangs stehen zur Auswahl; ein Bild beginnt im Format „Original“.</li>
+            <li><strong>Angaben</strong>: Tauchplatz, Datum, Uhrzeit und die Werte, die es zu diesem Tauchgang gibt.</li>
+            <li><strong>Profil</strong>: Tiefenprofil, Tiefenlinien, maximale Tiefe, Temperatur, Puls; Höhe und Breite mit den Reglern oder mit zwei Fingern auf dem Profil (waagrecht = Breite, senkrecht = Höhe).</li>
+            <li>Jedes Feld lässt sich im Bild an seinen Platz ziehen; mit der Tastatur über die Pfeiltasten.</li>
+            <li>Format (9:16, 4:5, 1:1, 4:3, 16:9, Original), Aufteilung, Schrift, Farben, Schriftfarbe, Schriftgröße, kursiv.</li>
+            <li>„Teilen…“ übergibt das Bild an andere Apps, „Bild speichern“ lädt es als PNG.</li>
+          </ul>
+          <p>Die Einstellungen merkt sich das Gerät für das nächste Bild; ein eigenes Bild muss jedes Mal neu gewählt werden.</p>
+        </article>
+        <article lang="en">
+          <h2>Share image</h2>
+          <ul>
+            <li><strong>Background</strong>: transparent, gradient (the theme's colours), solid colour or your own picture. The dive's pictures are offered; a picture starts in the "Original" format.</li>
+            <li><strong>Details</strong>: dive site, date, time and the numbers this dive has.</li>
+            <li><strong>Profile</strong>: depth profile, depth lines, max. depth, temperature, heart rate; height and width with the sliders or with two fingers on the profile (sideways = width, up and down = height).</li>
+            <li>Every field can be dragged to its place in the image; with a keyboard, use the arrow keys.</li>
+            <li>Format (9:16, 4:5, 1:1, 4:3, 16:9, Original), layout, font, colours, text colour, text size, italic.</li>
+            <li>"Share…" hands the image to other apps, "Save image" downloads it as PNG.</li>
+          </ul>
+          <p>The device remembers the settings for the next image; your own picture has to be chosen again each time.</p>
+        </article>
+      </section>
+
+      <section id="map">
+        <article lang="de">
+          <h2>Karte</h2>
+          <p>„Karte“ im Logbuch zeigt jeden Tauchplatz mit Position als Fahne. Ein Tipp auf die Fahne zeigt den Platz und seine Tauchgänge; ein Tipp auf einen Tauchgang öffnet ihn.</p>
+          <p>Die Position ist die des Tauchplatzes: beim Import der Eintauchpunkt der Uhr, sonst der Auftauchpunkt, sonst die eingegebene. Korrigieren über „Platz bearbeiten“.</p>
+          <p>Die Kartenbilder kommen von OpenStreetMap und werden nur geladen, solange die Karte offen ist; dafür braucht es Netz.</p>
+        </article>
+        <article lang="en">
+          <h2>Map</h2>
+          <p>"Map" in the logbook shows every dive site with a position as a flag. Tapping a flag shows the site and its dives; tapping a dive opens it.</p>
+          <p>The position is the dive site's: at import the watch's entry point, otherwise its exit point, otherwise the one entered. Correct it with "Edit site".</p>
+          <p>The map images come from OpenStreetMap and are loaded only while the map is open; this needs network.</p>
+        </article>
+      </section>
+
+      <section id="stats">
+        <article lang="de">
+          <h2>Statistik</h2>
+          <p>Summen (Tauchgänge, Tauchzeit, Tauchplätze), durchschnittlicher Luftverbrauch, Rekorde (tiefster, längster Tauchgang, kältestes und wärmstes Wasser) sowie Werte pro Jahr und pro Reise. Als ungültig markierte Tauchgänge zählen nicht. Der Luftverbrauch (SAC) wird wie in Subsurface berechnet.</p>
+        </article>
+        <article lang="en">
+          <h2>Statistics</h2>
+          <p>Totals (dives, dive time, dive sites), average air use, records (deepest and longest dive, coldest and warmest water) and numbers per year and per trip. Dives marked as invalid are not counted. Air use (SAC) is computed as in Subsurface.</p>
+        </article>
+      </section>
+
+      <section id="sync">
+        <article lang="de">
+          <h2>Synchronisieren und offline</h2>
+          <p>Die App hält eine Kopie des Logbuchs auf dem Gerät und funktioniert ohne Netz. Neue Tauchgänge und Änderungen warten auf dem Gerät, bis „Synchronisieren“ (im Logbuch oder unter <em>Daten</em>) sie hochlädt.</p>
+          <p>Beim Synchronisieren holt die App den neuesten Stand vom Server und schreibt ihre Änderungen darauf; sie überschreibt nie etwas. Hat sich das Logbuch inzwischen geändert, versucht sie es einmal neu. In Subsurface Desktop oder Mobile danach synchronisieren, um die Änderungen zu sehen.</p>
+          <p>Enthält das Logbuch etwas, das die App noch nicht versteht, schreibt sie nicht hinein, zeigt es aber an.</p>
+        </article>
+        <article lang="en">
+          <h2>Syncing and offline use</h2>
+          <p>The app keeps a copy of the logbook on the device and works without network. New dives and changes wait on the device until "Sync" (in the logbook or under <em>Data</em>) uploads them.</p>
+          <p>When syncing, the app fetches the latest state from the server and writes its changes on top; it never overwrites anything. If the logbook changed in the meantime, it tries once more. Sync in Subsurface Desktop or Mobile afterwards to see the changes.</p>
+          <p>If the logbook contains something the app does not understand yet, it does not write to it, but still shows it.</p>
+        </article>
+      </section>
+
+      <section id="data">
+        <article lang="de">
+          <h2>Export, Import und Backup</h2>
+          <ul>
+            <li><strong>Export</strong>: das ganze Logbuch oder nur die noch nicht synchronisierten Tauchgänge als .ssrf (in Subsurface Desktop: Datei → Importieren); ein Voll-Backup als ZIP, genau so wie gespeichert; der Voll-Export mit Bildern.</li>
+            <li><strong>Import</strong>: Tauchgänge aus einer .ssrf-Datei oder einem Backup hinzufügen; es kommen nur fehlende dazu.</li>
+            <li><strong>Backup wiederherstellen</strong>: macht das Backup zum aktuellen Stand. Bei einem Logbuch auf einem Server als neue Version, der alte Stand bleibt in der Geschichte.</li>
+            <li><strong>Abmelden und Daten auf diesem Gerät löschen</strong>: das Logbuch auf dem Server bleibt. Noch nicht synchronisierte Tauchgänge und Bilder, die nur auf diesem Gerät liegen, gehen verloren.</li>
+          </ul>
+        </article>
+        <article lang="en">
+          <h2>Export, import and backup</h2>
+          <ul>
+            <li><strong>Export</strong>: the whole logbook or only the dives not synced yet as .ssrf (in Subsurface Desktop: File → Import); a full backup as ZIP, exactly as stored; the full export with pictures.</li>
+            <li><strong>Import</strong>: add dives from an .ssrf file or a backup; only missing ones are added.</li>
+            <li><strong>Restore backup</strong>: makes the backup the current state. For a logbook on a server as a new version; the old state stays in the history.</li>
+            <li><strong>Sign out and delete data on this device</strong>: the logbook on the server stays. Dives not synced yet and pictures kept only on this device are lost.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="trip">
+        <article lang="de">
+          <h2>Reisemodus und Übertragen</h2>
+          <p>Vor einer Reise: unter <em>Daten</em> „In eigenes git kopieren“ legt eine Kopie des Logbuchs in einem leeren git-Repository an; „Ab jetzt mit der Kopie arbeiten“ wechselt dorthin. Das Original bleibt während der Reise unberührt.</p>
+          <p>Nach der Reise: „Tauchgänge übertragen“ kopiert die Tauchgänge, die dem Ziel fehlen, mit ihren Plätzen und Reisen zum Beispiel in die Subsurface-Cloud. Im Ziel wird nichts geändert oder gelöscht.</p>
+        </article>
+        <article lang="en">
+          <h2>Trip mode and transfer</h2>
+          <p>Before a trip: under <em>Data</em>, "Copy to own git" puts a copy of the logbook into an empty git repository; "Work with the copy from now on" switches to it. The original stays untouched during the trip.</p>
+          <p>After the trip: "Transfer dives" copies the dives the target is missing, with their sites and trips, for example into the Subsurface cloud. Nothing in the target is changed or deleted.</p>
+        </article>
+      </section>
+
+      <section id="language">
+        <article lang="de">
+          <h2>Sprache</h2>
+          <p>Die App folgt der Systemsprache, sonst Englisch. Unter <em>Daten</em> → Sprache (oder auf der Startseite) lässt sich Deutsch oder Englisch fest einstellen; das gilt für dieses Gerät.</p>
+        </article>
+        <article lang="en">
+          <h2>Language</h2>
+          <p>The app follows the system language, otherwise English. Under <em>Data</em> → Language (or on the start screen) German or English can be set; this applies to this device.</p>
+        </article>
+      </section>
+
+      <section id="about">
+        <article lang="de">
+          <h2>Über die App</h2>
+          <p>Ein unabhängiges Open-Source-Projekt (<a href="https://github.com/oachkatzalschwoaf/subsurface_web">Quellcode</a>, GPL-2.0), kein Angebot des Subsurface-Projekts. Es liest und schreibt das Logbuch-Format von <a href="https://subsurface-divelog.org/">Subsurface</a>. Nutzung auf eigene Gefahr; vor dem ersten Hochladen ein Backup machen.</p>
+        </article>
+        <article lang="en">
+          <h2>About the app</h2>
+          <p>An independent open-source project (<a href="https://github.com/oachkatzalschwoaf/subsurface_web">source code</a>, GPL-2.0), not a service of the Subsurface project. It reads and writes the logbook format of <a href="https://subsurface-divelog.org/">Subsurface</a>. Use at your own risk; make a backup before the first upload.</p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

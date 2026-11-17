@@ -1,4 +1,5 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { pwa } from './pwa.ts';
 
@@ -73,5 +74,14 @@ function gitProxy(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [svelte(), gitProxy(), pwa()],
-  build: { target: 'es2022' },
+  build: {
+    target: 'es2022',
+    // the app and its help page (help.html, opened in its own tab)
+    rolldownOptions: {
+      input: {
+        main: fileURLToPath(new URL('index.html', import.meta.url)),
+        help: fileURLToPath(new URL('help.html', import.meta.url)),
+      },
+    },
+  },
 });

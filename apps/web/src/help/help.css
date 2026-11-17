@@ -1,0 +1,131 @@
+:root {
+  --bg: #f4f7f9;
+  --card: #ffffff;
+  --text: #17232b;
+  --muted: #5b6b76;
+  --line: #d5dee4;
+  --accent: #0b5c8a;
+  --accent-text: #ffffff;
+  --link: #0b5c8a;
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f171c;
+    --card: #18242c;
+    --text: #e6edf1;
+    --muted: #9fb0bb;
+    --line: #2c3c47;
+    --accent: #4aa8d8;
+    --accent-text: #06202e;
+    --link: #7cc4ea;
+  }
+}
+
+/* One language at a time; until the script runs, both are shown. */
+html[data-lang='de'] [lang='en'],
+html[data-lang='en'] [lang='de'] {
+  display: none;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+a {
+  color: var(--link);
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.bar .app {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.bar input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.bar button {
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 10px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 8px 16px 64px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 16px 0 8px;
+}
+
+#contents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px 16px 8px;
+  margin: 12px 0;
+  /* below the sticky bar when jumped to */
+  scroll-margin-top: 72px;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 12px 0 8px;
+}
+
+li {
+  margin: 4px 0;
+}
+
+code {
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+
+#none {
+  color: var(--muted);
+}

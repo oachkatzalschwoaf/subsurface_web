@@ -80,6 +80,18 @@ header .link {
   color: inherit;
 }
 
+header .help {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .about {
   margin: 0;
   font-size: 0.9rem;

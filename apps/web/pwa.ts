@@ -55,8 +55,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.includes('git-proxy')) return;
   if (request.mode === 'navigate') {
-    // Network first for the page itself, so updates arrive; the cached copy when offline
-    event.respondWith(fetch(request).catch(() => caches.match(new URL('./', self.registration.scope))));
+    // Network first for the pages (app, help), so updates arrive; the cached copy when offline
+    event.respondWith(
+      fetch(request).catch(() =>
+        caches.match(request, { ignoreSearch: true }).then((hit) => hit || caches.match(new URL('./', self.registration.scope))),
+      ),
+    );
     return;
   }
   event.respondWith(caches.match(request).then((hit) => hit || fetch(request)));
@@ -68,6 +72,8 @@ export function pwa(): Plugin {
   let name = 'Topside';
   return {
     name: 'topside-pwa',
+    // after Vite's own HTML plugin, so the pages (index.html, help.html) are in the bundle
+    enforce: 'post',
     configResolved(config) {
       name = config.env.VITE_APP_NAME || 'Topside';
     },
@@ -78,10 +84,18 @@ export function pwa(): Plugin {
     },
     generateBundle(_options, bundle) {
       this.emitFile({ type: 'asset', fileName: 'manifest.webmanifest', source: manifest(name) });
+      // index.html is cached as './'; other pages (help.html) by name. Their text goes into the
+      // version too, so a changed help page reaches the offline cache.
+      const pages = Object.keys(bundle).filter((f) => f.endsWith('.html') && f !== 'index.html');
       const files = ['./', './manifest.webmanifest', ...ICONS.map((f) => `./${f}`), ...Object.keys(bundle).map((f) => `./${f}`)].filter(
-        (f) => !f.endsWith('.map') && !f.endsWith('.html'),
+        (f) => !f.endsWith('.map') && (!f.endsWith('.html') || pages.includes(f.slice(2))),
       );
-      const version = createHash('sha256').update(files.sort().join('\n')).digest('hex').slice(0, 12);
+      const hash = createHash('sha256').update(files.sort().join('\n'));
+      for (const page of pages) {
+        const asset = bundle[page];
+        if (asset?.type === 'asset') hash.update(asset.source);
+      }
+      const version = hash.digest('hex').slice(0, 12);
       this.emitFile({ type: 'asset', fileName: 'sw.js', source: serviceWorker(version, files) });
     },
   };

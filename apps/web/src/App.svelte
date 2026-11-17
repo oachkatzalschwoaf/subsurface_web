@@ -48,6 +48,17 @@
   const wide = new MediaQuery('(min-width: 900px)');
   const showStats = $derived(route === '#/stats');
   const showMap = $derived(route === '#/map');
+  /** The help section for the page on screen; help.html opens in its own tab. */
+  const helpSection = $derived.by(() => {
+    if (!workspace.source) return 'start';
+    if (tab === 'add') return 'import';
+    if (tab === 'data') return 'data';
+    const prefixes: [string, string][] = [
+      ['#/share/', 'share'], ['#/edit/', 'edit'], ['#/site/', 'edit'], ['#/trip/', 'edit'],
+      ['#/dive/', 'dive'], ['#/stats', 'stats'], ['#/map', 'map'],
+    ];
+    return prefixes.find(([prefix]) => route.startsWith(prefix))?.[1] ?? 'log';
+  });
   // #/trip/<time of its first dive>
   const editingTrip = $derived(
     route.startsWith('#/trip/') && logbook ? (listTrips(logbook).find((e) => String(e.first) === route.slice('#/trip/'.length)) ?? null) : null,
@@ -250,6 +261,7 @@
   <header>
     <h1><a href="#/">{APP_NAME} <small>{t.appFor}</small></a></h1>
     {#if !online}<span class="badge">{t.offline}</span>{/if}
+    <a class="help" href={`help.html#${helpSection}`} target="_blank" rel="noopener" title={t.help} aria-label={t.help}>?</a>
   </header>
 
 {#if workspace.source}

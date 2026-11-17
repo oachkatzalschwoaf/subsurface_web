@@ -40,6 +40,8 @@ official mobile app, use those.
   sync. Installable on Android and iOS (home screen).
 - **Logbook and dive pages** with depth, temperature and heart-rate charts.
 - **Map** of all dive sites with a position, as flags; a flag lists its dives and opens them.
+- **Help page** in German and English with search; the ? in the header opens it at the section for
+  the current page.
 - **Share images** with selectable numbers, fonts, colours, text size, portrait or landscape
   formats, a profile of adjustable height and width, and a transparent, gradient, single-colour or
   photo background (a photo starts in its own format); every field can be moved on its own.

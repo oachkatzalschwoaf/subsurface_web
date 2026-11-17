@@ -110,8 +110,14 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   else English. `t` and `locale` are live bindings that `setLanguage()` replaces; `App.svelte`
   re-renders everything in a `{#key}` block, so read them at render time (component setup is fine,
   module-level constants are not — `format.ts` caches its formatters per locale).
-- `pwa.ts` — Vite plugin that generates `manifest.webmanifest` (with `VITE_APP_NAME`) and `sw.js`
-  caching the build; `git-proxy.php` is never cached.
+- `help.html` + `src/help/` — the help page, a second Vite entry (`vite.config.ts`). Every
+  `<section id>` holds one `<article lang="de|en">` per language; `help.ts` shows one language
+  (same `topside.lang` choice as the app) and filters by search. The header's ? links to
+  `help.html#<section>` for the current route (`helpSection` in `App.svelte`). Keep the help in
+  step with UI changes and quote button labels as they are in `i18n.ts`.
+- `pwa.ts` — Vite plugin (runs after Vite's HTML plugin) that generates `manifest.webmanifest`
+  (with `VITE_APP_NAME`) and `sw.js` caching the build including `help.html` (its text goes into
+  the cache version); `git-proxy.php` is never cached.
 
 ### Git proxy
 
