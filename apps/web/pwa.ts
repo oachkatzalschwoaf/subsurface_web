@@ -11,7 +11,7 @@ const ICONS = ['icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.pn
 function manifest(name: string): string {
   return JSON.stringify(
     {
-      name,
+      name: `${name} for Subsurface`,
       short_name: name,
       description: 'Dive logbook for Subsurface: Garmin FIT import, offline use, sharing',
       start_url: './',

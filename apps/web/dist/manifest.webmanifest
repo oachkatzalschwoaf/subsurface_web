@@ -1,6 +1,6 @@
 {
-  "name": "Subsurface",
-  "short_name": "Subsurface",
+  "name": "Topside for Subsurface",
+  "short_name": "Topside",
   "description": "Dive logbook for Subsurface: Garmin FIT import, offline use, sharing",
   "start_url": "./",
   "scope": "./",

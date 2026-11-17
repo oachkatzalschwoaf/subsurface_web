@@ -64,6 +64,13 @@ header h1 {
   font-size: 1.25rem;
 }
 
+/* "for Subsurface": names the reference without passing the app off as Subsurface */
+header h1 small {
+  font-size: 0.8rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
 header .link {
   color: inherit;
 }

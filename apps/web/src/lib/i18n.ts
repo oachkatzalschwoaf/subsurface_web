@@ -1,4 +1,6 @@
 const en = {
+  /** after the app name in the header and the window title */
+  appFor: 'for Subsurface',
   tagline: 'Garmin dives straight into your Subsurface logbook',
   email: 'Subsurface cloud e-mail',
   password: 'Password',
@@ -334,6 +336,7 @@ const en = {
 type Strings = typeof en;
 
 const de: Strings = {
+  appFor: 'für Subsurface',
   tagline: 'Garmin-Tauchgänge direkt ins Subsurface-Logbuch',
   email: 'E-Mail der Subsurface-Cloud',
   password: 'Passwort',

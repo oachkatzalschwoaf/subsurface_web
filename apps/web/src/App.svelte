@@ -76,6 +76,10 @@
   // Switching the language re-renders everything below (strings and formatters are read on render).
   let uiLang = $state(lang);
   onMount(() => onLanguageChange((next) => (uiLang = next)));
+  $effect(() => {
+    void uiLang;
+    document.title = `${APP_NAME} ${t.appFor}`;
+  });
 
   onMount(() => {
     window.addEventListener('hashchange', () => (route = location.hash || '#/'));
@@ -241,7 +245,7 @@
 {#key uiLang}
 <div class="topbar">
   <header>
-    <h1>{APP_NAME}</h1>
+    <h1>{APP_NAME} <small>{t.appFor}</small></h1>
     {#if !online}<span class="badge">{t.offline}</span>{/if}
   </header>
 
