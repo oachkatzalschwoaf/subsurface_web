@@ -1,12 +1,13 @@
 /**
  * Renders a share image onto a canvas: site name, date line, each chosen number and the dive
  * profile, each a block of its own placed freely (relative coordinates), over a transparent,
- * coloured or photo background.
+ * gradient, single-colour or photo background.
  */
 import { niceStep, type Point } from './dive-data.ts';
 
 export type ShareFormat = 'portrait' | 'square' | 'story' | 'landscape' | 'wide' | 'photo';
-export type ShareBackground = 'transparent' | 'ocean' | 'photo';
+/** 'ocean' is the theme's gradient, 'solid' one colour (ShareStyle.color). */
+export type ShareBackground = 'transparent' | 'ocean' | 'solid' | 'photo';
 export type FontId = 'system' | 'bebas' | 'anton' | 'archivo' | 'righteous' | 'kanit' | 'bangers' | 'comic' | 'pacifico';
 export type ThemeId = 'ocean' | 'ice' | 'deep' | 'coral' | 'sunset' | 'lava';
 export type TemplateId = 'classic' | 'minimal' | 'profile';
@@ -99,6 +100,11 @@ export interface Box {
 
 export type Layout = Record<BlockId, Box>;
 
+/** Side margin of the templates, 0–1 of the width. */
+export const MARGIN = 0.067;
+/** Width of the profile at full size: the image width less both margins. */
+export const GRAPH_FULL_WIDTH = 1 - 2 * MARGIN;
+
 export const statBlock = (id: string): BlockId => `stat:${id}`;
 
 /**
@@ -108,7 +114,7 @@ export const statBlock = (id: string): BlockId => `stat:${id}`;
  */
 export function templateLayout(name: TemplateId, statIds: readonly string[], [W, H]: [number, number], fontScale = 1): Layout {
   const u = Math.min(W, H) / 1080;
-  const pad = 0.067;
+  const pad = MARGIN;
   const perRow = Math.max(1, Math.round((W > H * 1.2 ? 4 : 3) / Math.max(fontScale, 1)));
   const rows = Math.max(1, Math.ceil(statIds.length / perRow));
   const titleH = (110 * u * fontScale) / H;
@@ -152,6 +158,8 @@ export interface ShareContent {
 export interface ShareStyle {
   format: ShareFormat;
   background: ShareBackground;
+  /** colour of the 'solid' background, CSS hex */
+  color: string;
   photo: ImageBitmap | null;
   font: FontId;
   italic: boolean;
@@ -289,6 +297,9 @@ function drawBackground(ctx: CanvasRenderingContext2D, W: number, H: number, sty
     g.addColorStop(0.55, theme.ocean[1]);
     g.addColorStop(1, theme.ocean[2]);
     ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  } else if (style.background === 'solid') {
+    ctx.fillStyle = style.color;
     ctx.fillRect(0, 0, W, H);
   } else if (style.background === 'photo' && style.photo) {
     const img = style.photo;

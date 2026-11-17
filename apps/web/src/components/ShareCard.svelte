@@ -18,6 +18,7 @@
   import {
     canvasSize,
     FONTS,
+    GRAPH_FULL_WIDTH,
     loadFont,
     renderShare,
     statBlock,
@@ -42,6 +43,8 @@
     version: 2;
     format: ShareFormat;
     background: ShareBackground;
+    /** colour of the single-colour background */
+    color: string;
     font: FontId;
     italic: boolean;
     fontScale: number;
@@ -53,6 +56,8 @@
     /** start time of the dive in the date line */
     showTime: boolean;
     graph: GraphOptions;
+    /** profile width, 0–1 of the full width; kept when a template lays the blocks out anew */
+    graphWidth: number;
     layout: Layout;
     /** Name of the layout template, or 'custom' once a block was moved. */
     template: TemplateId | 'custom';
@@ -63,6 +68,7 @@
     version: 2,
     format: 'portrait',
     background: 'transparent',
+    color: '#0a2233',
     font: 'bebas',
     italic: false,
     fontScale: 1,
@@ -73,6 +79,7 @@
     showDate: true,
     showTime: false,
     graph: { show: true, grid: true, maxMarker: true, temp: false, hr: false },
+    graphWidth: 1,
     layout: templateLayout('classic', defaultStats, canvasSize('portrait', null)),
     template: 'classic',
   };
@@ -116,7 +123,14 @@
   let rects = $state.raw<Record<BlockId, Rect> | null>(null);
   /** Choices that move every block, so they re-apply the template unless blocks were moved by hand. */
   function relayout() {
-    if (s.template !== 'custom') s.layout = templateLayout(s.template, s.stats, canvasSize(s.format, photo), s.fontScale);
+    if (s.template === 'custom') return;
+    const layout = templateLayout(s.template, s.stats, canvasSize(s.format, photo), s.fontScale);
+    if (layout.graph) layout.graph.w = GRAPH_FULL_WIDTH * s.graphWidth;
+    s.layout = layout;
+  }
+  function setGraphWidth(value: number) {
+    s.graphWidth = value;
+    boxOf('graph').w = GRAPH_FULL_WIDTH * value;
   }
   let dragging = $state<BlockId | null>(null);
 
@@ -241,6 +255,13 @@
   const blocks = $derived(rects ? Object.keys(rects).map((id) => ({ id, label: blockLabel(id) })) : []);
   const pct = (v: number, total: number) => `${(v / total) * 100}%`;
 
+  const backgrounds: { id: ShareBackground; label: string }[] = [
+    { id: 'transparent', label: t.bgTransparent },
+    { id: 'ocean', label: t.bgOcean },
+    { id: 'solid', label: t.bgSolid },
+    { id: 'photo', label: t.bgPhoto },
+  ];
+
   const startTime = $derived(`${String(toTm(dive.when).hour).padStart(2, '0')}:${String(toTm(dive.when).minute).padStart(2, '0')}`);
 
   /** Formats as shapes to pick from; "Original" only with a photo as background. */
@@ -256,9 +277,18 @@
         : []),
     ] as { id: ShareFormat; ratio: number; short: string; label: string }[],
   );
+  /** The last format with fixed proportions, to go back to when the photo is no longer the background. */
+  let fixedFormat: ShareFormat = s.format === 'photo' ? 'portrait' : s.format;
   function setFormat(format: ShareFormat) {
     s.format = format;
+    if (format !== 'photo') fixedFormat = format;
     relayout();
+  }
+  /** A photo starts in its own format ("Original"); other formats can be picked afterwards. */
+  function setBackground(background: ShareBackground) {
+    s.background = background;
+    if (background === 'photo' && photo) setFormat('photo');
+    else if (background !== 'photo' && s.format === 'photo') setFormat(fixedFormat);
   }
 
   function applyTemplate(name: string) {
@@ -272,8 +302,7 @@
     const file = files?.[0];
     if (!file) return;
     photo = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    s.background = 'photo';
-    relayout();
+    setBackground('photo');
   }
 
   // The dive's own pictures on this device, offered as background
@@ -368,6 +397,34 @@
 
 <div class="controls">
 <section class="card">
+  <h3>{t.background}</h3>
+  <div class="chips" role="group" aria-label={t.background}>
+    {#each backgrounds as b (b.id)}
+      <button class="chip" aria-pressed={s.background === b.id} onclick={() => setBackground(b.id)}>{b.label}</button>
+    {/each}
+  </div>
+  {#if s.background === 'solid'}
+    <label class="color">
+      {t.bgColor}
+      <input type="color" bind:value={s.color} />
+    </label>
+  {:else if s.background === 'photo'}
+    {#if photoPreviews.length > 0}
+      <h3>{t.divePhotos}</h3>
+      <div class="photos">
+        {#each photoPreviews as p (p.filename)}
+          <button class="photo" onclick={() => useDivePhoto(p.filename)}><img src={p.url} alt="" /></button>
+        {/each}
+      </div>
+    {/if}
+    <label class="file">
+      <span class="secondary button">{t.choosePhoto}</span>
+      <input type="file" accept="image/*" onchange={(e) => choosePhoto(e.currentTarget.files)} />
+    </label>
+  {/if}
+</section>
+
+<section class="card">
   <h3>{t.shareInfo}</h3>
   <div class="chips">
     <button class="chip" aria-pressed={s.showSite} onclick={() => (s.showSite = !s.showSite)}>{t.showSite}</button>
@@ -392,6 +449,10 @@
     <label>
       {t.graphSize}
       <input type="range" min="0.1" max="0.6" step="0.01" value={s.layout.graph?.h ?? 0.24} oninput={(e) => (boxOf('graph').h = Number(e.currentTarget.value))} />
+    </label>
+    <label>
+      {t.graphWidth}
+      <input type="range" min="0.3" max="1" step="0.01" value={s.graphWidth} oninput={(e) => setGraphWidth(Number(e.currentTarget.value))} />
     </label>
   {/if}
 </section>
@@ -444,14 +505,6 @@
       </select>
     </label>
     <label>
-      {t.background}
-      <select bind:value={s.background}>
-        <option value="transparent">{t.bgTransparent}</option>
-        <option value="ocean">{t.bgOcean}</option>
-        <option value="photo">{t.bgPhoto}</option>
-      </select>
-    </label>
-    <label>
       {t.fontSize}
       <input
         type="range"
@@ -469,20 +522,6 @@
   <div class="chips">
     <button class="chip" aria-pressed={s.italic} onclick={() => (s.italic = !s.italic)}><i>{t.italic}</i></button>
   </div>
-  {#if photoPreviews.length > 0}
-    <h3>{t.divePhotos}</h3>
-    <div class="photos">
-      {#each photoPreviews as p (p.filename)}
-        <button class="photo" onclick={() => useDivePhoto(p.filename)}><img src={p.url} alt="" /></button>
-      {/each}
-    </div>
-  {/if}
-  {#if s.background === 'photo'}
-    <label class="file">
-      <span class="secondary button">{t.choosePhoto}</span>
-      <input type="file" accept="image/*" onchange={(e) => choosePhoto(e.currentTarget.files)} />
-    </label>
-  {/if}
 </section>
 </div>
 </div>
@@ -609,6 +648,11 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+  .color input {
+    width: 72px;
+    height: 40px;
+    padding: 2px;
   }
   .photos {
     display: flex;

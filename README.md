@@ -40,8 +40,8 @@ official mobile app, use those.
   sync. Installable on Android and iOS (home screen).
 - **Logbook and dive pages** with depth, temperature and heart-rate charts.
 - **Share images** with selectable numbers, fonts, colours, text size, portrait or landscape
-  formats and your own photo as background (also in the photo's own format); every field can be
-  moved on its own.
+  formats, a profile of adjustable height and width, and a transparent, gradient, single-colour or
+  photo background (a photo starts in its own format); every field can be moved on its own.
 - **Export and import** Subsurface XML (`.ssrf`), full backups (ZIP) and restore.
 - **Trip mode:** copy the logbook into an own git repository before a trip, work with the copy, and
   transfer the new dives into the Subsurface cloud afterwards — the original stays untouched while
