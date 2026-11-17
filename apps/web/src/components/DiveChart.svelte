@@ -80,7 +80,8 @@
   const timeTicks = $derived.by(() => {
     const step = niceStep(maxT / 60, Math.max(4, Math.floor(plotW / 55)));
     const out: number[] = [];
-    for (let m = 0; m * 60 <= maxT; m += step) out.push(m);
+    // count in steps, not by adding: 0.1 + 0.2 is 0.30000000000000004
+    for (let i = 0; i * step * 60 <= maxT; i++) out.push(Number((i * step).toFixed(6)));
     return out;
   });
 

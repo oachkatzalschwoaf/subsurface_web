@@ -9,6 +9,7 @@
  * load and then drops repeated readings in fixup_dc_temp(), which gives the same result.
  */
 import {
+  comparePictures,
   CYLINDER_USE,
   DIVE_MODES,
   isGasChange,
@@ -216,6 +217,7 @@ function parseDiveDirectory(
         if (picture) dive.pictures.push(picture);
         else warn(`${filePath}/${pic}: unexpected entry`);
       }
+      dive.pictures.sort(comparePictures);
     } else {
       warn(`${filePath}: unexpected entry`);
     }

@@ -4,6 +4,7 @@
   import { formatDate } from '../lib/format.ts';
   import { locale, t } from '../lib/i18n.ts';
   import DiveChart from './DiveChart.svelte';
+  import DivePictures from './DivePictures.svelte';
 
   let {
     logbook,
@@ -11,12 +12,15 @@
     onShare,
     onEdit,
     onEditSite,
+    onChange,
   }: {
     logbook: Logbook;
     dive: Dive;
     onShare: () => void;
     onEdit?: (() => void) | undefined;
     onEditSite?: (() => void) | undefined;
+    /** Saves a change (pictures) and uploads it when possible; missing = read-only */
+    onChange?: ((change: () => Promise<void>) => Promise<boolean>) | undefined;
   } = $props();
 
   const site = $derived(logbook.sites.find((s) => s.uuid === dive.siteUuid) ?? null);
@@ -119,6 +123,8 @@
   </section>
 {/if}
 </div>
+
+<DivePictures {dive} {onChange} />
 
 {#if dive.notes}
   <section class="card">

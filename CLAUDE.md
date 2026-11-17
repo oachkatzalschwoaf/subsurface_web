@@ -70,6 +70,9 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   applied to a freshly fetched logbook at sync. `app/notes.ts`: notes taken before a FIT file
   exists, matched to dives by time, or turned into a dive without samples (model
   "manually added dive", for which Subsurface draws a stand-in profile).
+  `app/pictures.ts`: picture references ("Topside/<date time site>/<name>", so Subsurface's
+  "Find moved media files" matches the unpacked full export), offsets from Exif, ordering as
+  Subsurface's add_picture(). The images stay in IndexedDB (`apps/web/src/lib/media.ts`).
 - `sync/sync.ts` — isomorphic-git on objects only (no checkout). `fetchLogbook` clones and reads
   the tree; `inspect()` refuses writing (returns `problems`) unless the tree round-trips exactly;
   `pushLogbook` commits on top of the fetched commit and never force-pushes (a moved remote is a

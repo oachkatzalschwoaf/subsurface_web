@@ -51,7 +51,8 @@ describe('round trip of the synthetic repository', () => {
 
     expect(second!.computers.map((c) => c.duration)).toEqual([2095, 1800]);
     expect(second!.computers[1]!.when).toBe(second!.when - 86);
-    expect(second!.pictures.map((p) => p.offset)).toEqual([300, -90]);
+    // sorted by offset on load, as Subsurface does (add_picture)
+    expect(second!.pictures.map((p) => p.offset)).toEqual([-90, 300]);
     expect(logbook.sites.find((s) => s.uuid === 0x00c0ffee)!.location).toEqual({ lat: 47906674, lon: -13567017 });
   });
 });

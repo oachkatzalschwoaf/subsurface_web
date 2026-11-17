@@ -26,10 +26,21 @@ export {
   detailsOf,
   formatCoordinates,
   isEmptyEdit,
+  mergeEdits,
   parseCoordinates,
   type DiveEdit,
   type SiteEdit,
 } from './app/edits.ts';
+export {
+  addPicture,
+  exifDate,
+  MEDIA_ROOT,
+  pictureFileName,
+  pictureFolder,
+  pictureOffset,
+  removePicture,
+  safeFileName,
+} from './app/pictures.ts';
 export { applyNote, canBecomeDive, draftFromNote, MANUAL_DIVE_MODEL, matchNotes, newNote, type DiveNote } from './app/notes.ts';
 export {
   applyPreset,

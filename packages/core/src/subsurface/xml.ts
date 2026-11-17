@@ -7,6 +7,7 @@
  * Subsurface computes on save and ignores on load (sac, otu, cns of a dive).
  */
 import {
+  comparePictures,
   CYLINDER_USE,
   DIVE_MODES,
   hasLocation,
@@ -483,6 +484,7 @@ function parseDiveElement(e: XmlElement, trip: Trip | null, warnings: string[]):
     }
   }
   if (dive.computers.length === 0) dive.computers.push(newDiveComputer(dive.when, duration));
+  dive.pictures.sort(comparePictures);
   return dive;
 }
 

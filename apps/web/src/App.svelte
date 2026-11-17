@@ -120,6 +120,17 @@
 
   /** Save a change, upload it when possible, and go back to where the edit page was opened. */
   async function saveChange(change: () => Promise<void>, fallback: string): Promise<boolean> {
+    const ok = await applyChange(change);
+    // leaves no edit page in the history
+    if (ok) {
+      if (history.length > 1) history.back();
+      else location.replace(fallback);
+    }
+    return ok;
+  }
+
+  /** Save a change and upload it when possible. */
+  async function applyChange(change: () => Promise<void>): Promise<boolean> {
     let ok = false;
     await run(async () => {
       await change();
@@ -133,11 +144,6 @@
         return `${t.editSavedOffline} ${message(e)}`;
       }
     });
-    // back to the dive the edit page was opened from; leaves no edit page in the history
-    if (ok) {
-      if (history.length > 1) history.back();
-      else location.replace(fallback);
-    }
     return ok;
   }
 
@@ -198,6 +204,7 @@
       onShare={() => go(`#/share/${dive.when}`)}
       onEdit={canEdit ? () => go(`#/edit/${dive.when}`) : undefined}
       onEditSite={canEdit && dive.siteUuid !== null && workspace.isSyncedSite(dive.siteUuid) ? () => go(`#/site/${dive.siteUuid}`) : undefined}
+      onChange={canEdit ? applyChange : undefined}
     />
   {/if}
 {/snippet}

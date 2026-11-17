@@ -254,6 +254,31 @@ const en = {
   siteEditTitle: 'Edit dive site',
   siteDives: (n: number) => `Applies to all ${n} ${n === 1 ? 'dive' : 'dives'} at this site.`,
   notePosition: 'Position (optional)',
+  // pictures
+  pictures: 'Pictures',
+  addPictures: 'Add pictures',
+  picturesHint: 'Pictures stay on this device; the logbook only gets a reference. The full export (Data) takes them to the PC.',
+  pictureMissing: 'not on this device',
+  pictureBefore: (min: number) => (min ? `${min} min before` : 'at the start'),
+  pictureAt: (min: number) => (min ? `after ${min} min` : 'at the start'),
+  pictureRemove: 'Remove',
+  pictureRemoveConfirm: 'Remove this picture from the dive and from this device?',
+  close: 'Close',
+  divePhotos: 'Pictures of this dive',
+  fullExport: 'Full export with pictures (.zip)',
+  fullExportHint: (n: number) =>
+    `The .ssrf file plus ${n} ${n === 1 ? 'picture' : 'pictures'} in folders per dive. On the PC: unpack, then in Subsurface File → Find moved media files and pick the unpacked folder.`,
+  fullExportReadme: (app: string) =>
+    [
+      `Exported by ${app}.`,
+      '',
+      '- The .ssrf file is the logbook (Subsurface: File → Import).',
+      '- The folder "Topside" holds the pictures, one folder per dive.',
+      '- If the dives come from the Subsurface cloud, their picture references are already there:',
+      '  in Subsurface use File → Find moved media files and choose the folder this file is in.',
+      '',
+    ].join('\n'),
+  signOutMedia: (n: number) => ` ${n} ${n === 1 ? 'picture is' : 'pictures are'} kept only on this device and will be deleted too.`,
 };
 
 type Strings = typeof en;
@@ -515,6 +540,32 @@ const de: Strings = {
   siteEditTitle: 'Tauchplatz bearbeiten',
   siteDives: (n) => `Gilt für ${n === 1 ? 'den einen Tauchgang' : `alle ${n} Tauchgänge`} an diesem Platz.`,
   notePosition: 'Position (optional)',
+  // pictures
+  pictures: 'Bilder',
+  addPictures: 'Bilder hinzufügen',
+  picturesHint: 'Bilder bleiben auf diesem Gerät; ins Logbuch kommt nur ein Verweis. Mit dem Voll-Export (Daten) kommen sie auf den PC.',
+  pictureMissing: 'nicht auf diesem Gerät',
+  pictureBefore: (min) => (min ? `${min} min vorher` : 'zu Beginn'),
+  pictureAt: (min) => (min ? `nach ${min} min` : 'zu Beginn'),
+  pictureRemove: 'Entfernen',
+  pictureRemoveConfirm: 'Dieses Bild aus dem Tauchgang und von diesem Gerät entfernen?',
+  close: 'Schließen',
+  divePhotos: 'Bilder dieses Tauchgangs',
+  fullExport: 'Voll-Export mit Bildern (.zip)',
+  fullExportHint: (n) =>
+    `Die .ssrf-Datei und ${n} ${n === 1 ? 'Bild' : 'Bilder'} in Ordnern je Tauchgang. Am PC: entpacken, dann in Subsurface Datei → Verschobene Mediendateien suchen und den entpackten Ordner wählen.`,
+  fullExportReadme: (app) =>
+    [
+      `Exportiert von ${app}.`,
+      '',
+      '- Die .ssrf-Datei ist das Logbuch (Subsurface: Datei → Importieren).',
+      '- Der Ordner "Topside" enthält die Bilder, ein Ordner je Tauchgang.',
+      '- Kommen die Tauchgänge aus der Subsurface-Cloud, sind die Bildverweise dort schon drin:',
+      '  in Subsurface Datei → Verschobene Mediendateien suchen und den Ordner dieser Datei wählen.',
+      '',
+    ].join('\n'),
+  signOutMedia: (n) =>
+    n === 1 ? ' 1 Bild liegt nur auf diesem Gerät und wird ebenfalls gelöscht.' : ` ${n} Bilder liegen nur auf diesem Gerät und werden ebenfalls gelöscht.`,
 };
 
 export const t: Strings = navigator.language.toLowerCase().startsWith('de') ? de : en;

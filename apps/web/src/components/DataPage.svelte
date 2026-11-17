@@ -2,7 +2,7 @@
   /** Sync status, export, backup, import, travel copy and transfer, sign out. */
   import { parseLogbook, parseXml } from '@topside/core';
   import { APP_NAME } from '../lib/brand.ts';
-  import { backupZip, downloadFile, readBackupZip, today } from '../lib/files.ts';
+  import { backupZip, downloadFile, fullExportZip, readBackupZip, today } from '../lib/files.ts';
   import { clearGear } from '../lib/gear.ts';
   import { locale, t } from '../lib/i18n.ts';
   import { isRemote, sourceLabel, type RemoteSource } from '../lib/sources.ts';
@@ -22,6 +22,25 @@
   function exportXml(onlyPending: boolean) {
     const xml = workspace.exportXml(onlyPending);
     downloadFile(xml, `${onlyPending ? 'neue-tauchgaenge' : 'logbuch'}-${today()}.ssrf`, 'application/xml');
+  }
+
+  /** Pictures referenced by the logbook that are kept on this device */
+  const exportable = $derived.by(() => {
+    const referenced = new Set(workspace.view?.logbook.dives.flatMap((d) => d.pictures.map((p) => p.filename)) ?? []);
+    return workspace.media.filter((m) => referenced.has(m.filename));
+  });
+
+  async function fullExport() {
+    await run(async () => {
+      const pictures = [];
+      for (const item of exportable) {
+        const blob = await workspace.mediaBlob(item.filename);
+        if (blob) pictures.push({ filename: item.filename, data: new Uint8Array(await blob.arrayBuffer()) });
+      }
+      const name = `logbuch-${today()}`;
+      const zip = fullExportZip(`${name}.ssrf`, workspace.exportXml(false), pictures, t.fullExportReadme(APP_NAME));
+      downloadFile(new Blob([zip as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${name}-mit-bildern.zip`);
+    });
   }
 
   function backup() {
@@ -80,7 +99,9 @@
   }
 
   function signOut() {
-    const message = workspace.pendingCount ? t.signOutPending(workspace.pendingCount) : t.signOutConfirm;
+    const message =
+      (workspace.pendingCount ? t.signOutPending(workspace.pendingCount) : t.signOutConfirm) +
+      (workspace.media.length ? t.signOutMedia(workspace.media.length) : '');
     if (!confirm(message)) return;
     run(async () => {
       await workspace.signOut();
@@ -110,6 +131,10 @@
   {#if workspace.pendingCount}<button class="secondary" onclick={() => exportXml(true)}>{t.exportPending}</button>{/if}
   <button class="secondary" onclick={backup}>{t.backupDownload}</button>
   <p class="hint">{t.exportHint}</p>
+  {#if exportable.length > 0}
+    <button class="secondary" disabled={busy} onclick={fullExport}>{t.fullExport}</button>
+    <p class="hint">{t.fullExportHint(exportable.length)}</p>
+  {/if}
 </section>
 
 <section class="card">

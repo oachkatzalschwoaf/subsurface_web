@@ -6,7 +6,8 @@
  * fetched logbook without undoing what somebody else changed in other fields meanwhile.
  */
 import { createSite } from '../subsurface/edit.ts';
-import { newCylinder, type Dive, type DiveSite, type Location, type Logbook } from '../subsurface/model.ts';
+import { newCylinder, type Dive, type DiveSite, type Location, type Logbook, type Picture } from '../subsurface/model.ts';
+import { addPicture, removePicture } from './pictures.ts';
 import { milli, o2Permille, splitTags, type DiveDetails, type SiteChoice } from './drafts.ts';
 
 export interface DiveEdit {
@@ -16,6 +17,10 @@ export interface DiveEdit {
   changes: Partial<DiveDetails>;
   /** Set to move the dive to another site (or to none) */
   site?: SiteChoice;
+  /** Picture references to add */
+  addPictures?: Picture[];
+  /** File names of picture references to remove */
+  removePictures?: string[];
 }
 
 const amount = (value: number): number | null => (value > 0 ? value / 1000 : null);
@@ -58,7 +63,23 @@ export function changedDetails(before: DiveDetails, after: DiveDetails): Partial
   return changes;
 }
 
-export const isEmptyEdit = (edit: DiveEdit): boolean => Object.keys(edit.changes).length === 0 && edit.site === undefined;
+export const isEmptyEdit = (edit: DiveEdit): boolean =>
+  Object.keys(edit.changes).length === 0 && edit.site === undefined && !edit.addPictures?.length && !edit.removePictures?.length;
+
+/** Two edits of the same dive as one: field by field the later wins; pictures add up. */
+export function mergeEdits(earlier: DiveEdit, later: DiveEdit): DiveEdit {
+  const merged: DiveEdit = { when: later.when, changes: { ...earlier.changes, ...later.changes } };
+  const site = later.site ?? earlier.site;
+  if (site) merged.site = site;
+  const removedLater = new Set(later.removePictures ?? []);
+  // a picture added and removed again before syncing is simply not added
+  const add = [...(earlier.addPictures ?? []).filter((p) => !removedLater.has(p.filename)), ...(later.addPictures ?? [])];
+  const addedEarlier = new Set((earlier.addPictures ?? []).map((p) => p.filename));
+  const remove = [...(earlier.removePictures ?? []), ...[...removedLater].filter((f) => !addedEarlier.has(f))];
+  if (add.length) merged.addPictures = add;
+  if (remove.length) merged.removePictures = remove;
+  return merged;
+}
 
 /** Apply an edit. Returns the changed dive, or null if the logbook no longer has that dive. */
 export function applyEdit(logbook: Logbook, edit: DiveEdit): Dive | null {
@@ -122,6 +143,8 @@ export function applyEdit(logbook: Logbook, edit: DiveEdit): Dive | null {
     const position = logbook.sites.find((s) => s.uuid === dive.siteUuid)?.location ?? null;
     dive.siteUuid = (logbook.sites.find((s) => s.name === name) ?? createSite(logbook, name, position)).uuid;
   }
+  for (const filename of edit.removePictures ?? []) removePicture(dive, filename);
+  for (const picture of edit.addPictures ?? []) addPicture(dive, picture);
   return dive;
 }
 

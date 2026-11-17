@@ -112,6 +112,15 @@ export interface Picture {
   location: Location | null;
 }
 
+/**
+ * Picture order in Subsurface (picture::operator< and add_picture() in core/picture.cpp): by offset,
+ * then file name. Loading git or XML inserts every picture this way.
+ */
+export function comparePictures(a: Picture, b: Picture): number {
+  if (a.offset !== b.offset) return a.offset - b.offset;
+  return a.filename < b.filename ? -1 : a.filename > b.filename ? 1 : 0;
+}
+
 /** divemode_text in core/dive.cpp */
 export const DIVE_MODES = ['OC', 'CCR', 'PSCR', 'Freedive'] as const;
 

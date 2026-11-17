@@ -33,4 +33,18 @@ export function readBackupZip(bytes: Uint8Array): GitTree {
   return unflattenTree(files);
 }
 
+/**
+ * The full export: the logbook as Subsurface XML plus the pictures at the paths the logbook
+ * references, so Subsurface's "Find moved media files" can match them. Images are stored without
+ * compression (they are compressed already).
+ */
+export function fullExportZip(ssrfName: string, xml: string, pictures: { filename: string; data: Uint8Array }[], readme: string): Uint8Array {
+  const entries: Record<string, Uint8Array | [Uint8Array, { level: 0 }]> = {
+    [ssrfName]: strToU8(xml),
+    'README.txt': strToU8(readme),
+  };
+  for (const p of pictures) entries[p.filename] = [p.data, { level: 0 }];
+  return zipSync(entries, { level: 6 });
+}
+
 export const today = (): string => new Date().toISOString().slice(0, 10);

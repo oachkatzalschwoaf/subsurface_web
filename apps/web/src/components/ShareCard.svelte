@@ -8,6 +8,7 @@
   import { downsample, profile, summary } from '../lib/dive-data.ts';
   import { formatDate } from '../lib/format.ts';
   import { locale, t } from '../lib/i18n.ts';
+  import { workspace } from '../lib/workspace.svelte.ts';
   import {
     FONTS,
     loadFont,
@@ -192,11 +193,36 @@
   }
 
   // ---- Photo, save, share -------------------------------------------------------------------
-  async function choosePhoto(files: FileList | null) {
+  async function choosePhoto(files: FileList | Blob[] | null) {
     const file = files?.[0];
     if (!file) return;
     photo = await createImageBitmap(file, { imageOrientation: 'from-image' });
     s.background = 'photo';
+  }
+
+  // The dive's own pictures on this device, offered as background
+  const divePhotos = $derived(dive.pictures.filter((p) => workspace.media.some((m) => m.filename === p.filename)));
+  let photoPreviews = $state<{ filename: string; url: string }[]>([]);
+  $effect(() => {
+    const wanted = divePhotos.map((p) => p.filename);
+    const urls: { filename: string; url: string }[] = [];
+    let cancelled = false;
+    void (async () => {
+      for (const filename of wanted) {
+        const blob = await workspace.mediaBlob(filename, true);
+        if (cancelled) return;
+        if (blob) urls.push({ filename, url: URL.createObjectURL(blob) });
+      }
+      photoPreviews = [...urls];
+    })();
+    return () => {
+      cancelled = true;
+      for (const u of urls) URL.revokeObjectURL(u.url);
+    };
+  });
+  async function useDivePhoto(filename: string) {
+    const blob = await workspace.mediaBlob(filename);
+    if (blob) await choosePhoto([blob]);
   }
 
   function fileName(): string {
@@ -341,6 +367,14 @@
       </select>
     </label>
   </div>
+  {#if photoPreviews.length > 0}
+    <h3>{t.divePhotos}</h3>
+    <div class="photos">
+      {#each photoPreviews as p (p.filename)}
+        <button class="photo" onclick={() => useDivePhoto(p.filename)}><img src={p.url} alt="" /></button>
+      {/each}
+    </div>
+  {/if}
   {#if s.background === 'photo'}
     <label class="file">
       <span class="secondary button">{t.choosePhoto}</span>
@@ -438,6 +472,26 @@
   .actions {
     display: flex;
     gap: 12px;
+  }
+  .photos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .photo {
+    width: 72px;
+    height: 72px;
+    padding: 0;
+    min-height: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
   .actions button {
     flex: 1;

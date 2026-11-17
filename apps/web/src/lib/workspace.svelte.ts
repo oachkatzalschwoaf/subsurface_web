@@ -11,6 +11,10 @@ import {
   applyEdit,
   applySiteEdit,
   commitMessageForChanges,
+  exifDate,
+  mergeEdits,
+  pictureFileName,
+  pictureOffset,
   commitMessageForNewDives,
   fetchLogbook,
   flattenTree,
@@ -39,6 +43,7 @@ import {
 } from '@topside/core';
 import { APP_NAME } from './brand.ts';
 import { dbDelete, dbGet, dbSet, persistStorage } from './db.ts';
+import { deleteMedia, loadMediaList, mediaBlob, saveMediaList, storeMedia, takenAt, type MediaItem } from './media.ts';
 import {
   credentialId,
   freshEnv,
@@ -84,14 +89,10 @@ const EDITS_KEY = 'edits';
 const SITE_EDITS_KEY = 'siteEdits';
 const NOTES_KEY = 'notes';
 
-/** Two edits of the same dive as one: the later one wins field by field. */
+/** Two edits of the same dive as one (see mergeEdits). */
 function mergeEdit(edits: DiveEdit[], edit: DiveEdit): DiveEdit[] {
   const earlier = edits.find((e) => e.when === edit.when);
-  if (!earlier) return [...edits, edit];
-  const merged: DiveEdit = { when: edit.when, changes: { ...earlier.changes, ...edit.changes } };
-  const site = edit.site ?? earlier.site;
-  if (site) merged.site = site;
-  return edits.map((e) => (e === earlier ? merged : e));
+  return earlier ? edits.map((e) => (e === earlier ? mergeEdits(earlier, edit) : e)) : [...edits, edit];
 }
 
 function mergeSiteEdit(edits: SiteEdit[], edit: SiteEdit): SiteEdit[] {
@@ -123,6 +124,8 @@ class Workspace {
   siteEdits = $state.raw<SiteEdit[]>([]);
   /** Notes for dives whose FIT file does not exist yet. Kept on this device only. */
   notes = $state.raw<DiveNote[]>([]);
+  /** Pictures kept on this device */
+  media = $state.raw<MediaItem[]>([]);
   /** Why the current logbook must not be written. */
   problems = $state.raw<string[]>([]);
 
@@ -170,6 +173,7 @@ class Workspace {
       this.edits = (await dbGet<DiveEdit[]>(EDITS_KEY)) ?? [];
       this.siteEdits = (await dbGet<SiteEdit[]>(SITE_EDITS_KEY)) ?? [];
       this.notes = (await dbGet<DiveNote[]>(NOTES_KEY)) ?? [];
+      this.media = await loadMediaList();
     } finally {
       this.loaded = true;
     }
@@ -254,15 +258,21 @@ class Workspace {
     await this.save({ kind: 'local' }, serializeLogbook(logbook), null);
   }
 
-  /** Delete everything on this device; with `keepNotes` the dive notes stay (switching logbooks). */
-  async signOut(keepNotes = false): Promise<void> {
+  /**
+   * Delete everything on this device. With `keepDeviceData` the dive notes and pictures stay
+   * (switching to a copy of the same logbook).
+   */
+  async signOut(keepDeviceData = false): Promise<void> {
     await dbDelete(WORKSPACE_KEY);
     await dbDelete(PENDING_KEY);
     await dbDelete(EDITS_KEY);
     await dbDelete(SITE_EDITS_KEY);
-    if (!keepNotes) {
+    if (!keepDeviceData) {
       await dbDelete(NOTES_KEY);
       this.notes = [];
+      for (const item of this.media) await deleteMedia(item.filename);
+      await saveMediaList([]);
+      this.media = [];
     }
     this.source = null;
     this.tree = null;
@@ -327,6 +337,47 @@ class Workspace {
       return;
     }
     await this.saveSiteEdits(mergeSiteEdit(this.siteEdits, structuredClone(edit)));
+  }
+
+  // ---- Pictures ---------------------------------------------------------------------------------
+
+  /**
+   * Keep pictures on this device and add references to them to the dive. The reference is a logbook
+   * change like any edit: direct in local mode, otherwise uploaded with the next sync.
+   */
+  async addPictures(dive: Dive, files: readonly File[]): Promise<number> {
+    const logbook = this.view?.logbook;
+    if (!logbook || files.length === 0) return 0;
+    const taken = new Set([...logbook.dives.flatMap((d) => d.pictures), ...this.media].map((p) => p.filename.toLowerCase()));
+    const added: MediaItem[] = [];
+    const pictures = [];
+    for (const file of files) {
+      const head = new Uint8Array(await file.slice(0, 256 * 1024).arrayBuffer());
+      const filename = pictureFileName(logbook, dive, file.name, taken);
+      taken.add(filename.toLowerCase());
+      await storeMedia(filename, file);
+      added.push({ filename, diveWhen: dive.when, type: file.type, size: file.size, addedAt: Date.now() });
+      pictures.push({ offset: pictureOffset(dive, takenAt(file, exifDate(head))), filename, location: null });
+    }
+    const media = [...this.media, ...added];
+    await saveMediaList(media);
+    this.media = media;
+    void persistStorage();
+    await this.editDive({ when: dive.when, changes: {}, addPictures: pictures });
+    return added.length;
+  }
+
+  /** Remove a picture reference from the dive, and the picture from this device. */
+  async removePicture(dive: Dive, filename: string): Promise<void> {
+    await this.editDive({ when: dive.when, changes: {}, removePictures: [filename] });
+    await deleteMedia(filename);
+    const media = this.media.filter((m) => m.filename !== filename);
+    await saveMediaList(media);
+    this.media = media;
+  }
+
+  mediaBlob(filename: string, preview = false): Promise<Blob | null> {
+    return mediaBlob(filename, preview);
   }
 
   /** Whether a site can be edited: it must exist in the synced logbook, not only in a pending dive. */
