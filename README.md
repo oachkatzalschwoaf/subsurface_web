@@ -39,7 +39,9 @@ official mobile app, use those.
 - **Offline:** the logbook is kept on the device; new dives are stored and uploaded with the next
   sync. Installable on Android and iOS (home screen).
 - **Logbook and dive pages** with depth, temperature and heart-rate charts.
-- **Share images** with selectable numbers, fonts, colours and your own photo as background.
+- **Share images** with selectable numbers, fonts, colours, text size, portrait or landscape
+  formats and your own photo as background (also in the photo's own format); every field can be
+  moved on its own.
 - **Export and import** Subsurface XML (`.ssrf`), full backups (ZIP) and restore.
 - **Trip mode:** copy the logbook into an own git repository before a trip, work with the copy, and
   transfer the new dives into the Subsurface cloud afterwards — the original stays untouched while
@@ -112,4 +114,5 @@ More in [CLAUDE.md](CLAUDE.md) and [docs/format.md](docs/format.md).
 ## License
 
 GPL-2.0-only, the same license as Subsurface. See [LICENSE](LICENSE). Bundled fonts (Bebas Neue,
-Anton, Archivo Black, Righteous) are under the SIL Open Font License 1.1.
+Anton, Archivo Black, Righteous, Kanit, Bangers, Comic Neue, Pacifico) are under the SIL Open Font
+License 1.1.

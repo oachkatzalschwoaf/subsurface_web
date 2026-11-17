@@ -1,7 +1,13 @@
 <script lang="ts">
   import '@fontsource/anton/latin-400.css';
   import '@fontsource/archivo-black/latin-400.css';
+  import '@fontsource/bangers/latin-400.css';
   import '@fontsource/bebas-neue/latin-400.css';
+  import '@fontsource/comic-neue/latin-700-italic.css';
+  import '@fontsource/comic-neue/latin-700.css';
+  import '@fontsource/kanit/latin-800-italic.css';
+  import '@fontsource/kanit/latin-800.css';
+  import '@fontsource/pacifico/latin-400.css';
   import '@fontsource/righteous/latin-400.css';
   import { sacRate, toTm, type Dive, type Logbook } from '@topside/core';
   import { APP_NAME } from '../lib/brand.ts';
@@ -10,11 +16,12 @@
   import { locale, t } from '../lib/i18n.ts';
   import { workspace } from '../lib/workspace.svelte.ts';
   import {
+    canvasSize,
     FONTS,
     loadFont,
     renderShare,
-    SIZES,
-    TEMPLATES,
+    statBlock,
+    templateLayout,
     type BlockId,
     type FontId,
     type GraphOptions,
@@ -22,6 +29,7 @@
     type Rect,
     type ShareBackground,
     type ShareFormat,
+    type TemplateId,
     type ThemeId,
   } from '../lib/share-render.ts';
 
@@ -29,40 +37,55 @@
 
   // ---- Settings, remembered on this device --------------------------------------------------
   interface Settings {
+    /** 2: every block placed on its own */
+    version: 2;
     format: ShareFormat;
     background: ShareBackground;
     font: FontId;
+    italic: boolean;
+    fontScale: number;
     theme: ThemeId;
-    columns: number;
     stats: string[];
     showSite: boolean;
     showDate: boolean;
     graph: GraphOptions;
     layout: Layout;
     /** Name of the layout template, or 'custom' once a block was moved. */
-    template: keyof typeof TEMPLATES | 'custom';
+    template: TemplateId | 'custom';
   }
   const STORE_KEY = 'topside.share';
+  const defaultStats = ['duration', 'maxDepth', 'water'];
   const defaults: Settings = {
+    version: 2,
     format: 'portrait',
     background: 'transparent',
     font: 'bebas',
+    italic: false,
+    fontScale: 1,
     theme: 'ocean',
-    columns: 3,
-    stats: ['duration', 'maxDepth', 'water'],
+    stats: defaultStats,
     showSite: true,
     showDate: true,
     graph: { show: true, grid: true, maxMarker: true, temp: false, hr: false },
-    layout: structuredClone(TEMPLATES.classic),
+    layout: templateLayout('classic', defaultStats, canvasSize('portrait', null)),
     template: 'classic',
   };
   function loadSettings(): Settings {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null') as Partial<Settings> | null;
+      const saved = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null') as (Partial<Settings> & { columns?: number }) | null;
       if (!saved) return structuredClone(defaults);
-      const merged = { ...structuredClone(defaults), ...saved, graph: { ...defaults.graph, ...saved.graph } };
+      const merged: Settings & { columns?: number } = { ...structuredClone(defaults), ...saved, graph: { ...defaults.graph, ...saved.graph } };
       // A photo is not stored; fall back until one is chosen again.
       if (merged.background === 'photo') merged.background = 'ocean';
+      if (merged.format === 'photo') merged.format = 'portrait';
+      if (!(merged.font in FONTS)) merged.font = defaults.font;
+      // Settings of the first version had one block for all numbers: lay them out anew.
+      if (saved.version !== 2) {
+        if (merged.template === 'custom') merged.template = 'classic';
+        merged.layout = templateLayout(merged.template, merged.stats, canvasSize(merged.format, null), merged.fontScale);
+        merged.version = 2;
+      }
+      delete merged.columns;
       return merged;
     } catch {
       return structuredClone(defaults);
@@ -80,6 +103,10 @@
   let photo = $state.raw<ImageBitmap | null>(null);
   let canvas = $state<HTMLCanvasElement>();
   let rects = $state.raw<Record<BlockId, Rect> | null>(null);
+  /** Choices that move every block, so they re-apply the template unless blocks were moved by hand. */
+  function relayout() {
+    if (s.template !== 'custom') s.layout = templateLayout(s.template, s.stats, canvasSize(s.format, photo), s.fontScale);
+  }
   let dragging = $state<BlockId | null>(null);
 
   // ---- Content ------------------------------------------------------------------------------
@@ -100,6 +127,11 @@
     ];
     if (info.meanDepth !== null) out.push({ id: 'meanDepth', label: t.statMeanDepth, value: `${one.format(info.meanDepth)} m` });
     if (info.waterTemp !== null) out.push({ id: 'water', label: t.statWater, value: `${Math.round(info.waterTemp)} °C` });
+    const temps = allPoints.filter((p) => p.temp !== null).map((p) => p.temp!);
+    if (temps.length > 1) {
+      out.push({ id: 'tempMin', label: t.statTempMin, value: `${one.format(Math.min(...temps))} °C` });
+      out.push({ id: 'tempAvg', label: t.statTempAvg, value: `${one.format(temps.reduce((a, b) => a + b, 0) / temps.length)} °C` });
+    }
     if (hrs.length) {
       out.push({ id: 'avgHr', label: t.statAvgHr, value: `${Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length)} bpm` });
       out.push({ id: 'maxHr', label: t.statMaxHr, value: `${Math.max(...hrs)} bpm` });
@@ -118,7 +150,13 @@
   const hasHr = $derived(allPoints.filter((p) => p.hr !== null).length > 1);
 
   function toggleStat(id: string) {
-    s.stats = s.stats.includes(id) ? s.stats.filter((x) => x !== id) : [...s.stats, id];
+    const adding = !s.stats.includes(id);
+    s.stats = adding ? [...s.stats, id] : s.stats.filter((x) => x !== id);
+    if (s.template !== 'custom') relayout();
+    else if (adding && !s.layout[statBlock(id)]) {
+      // a number added after moving blocks by hand goes where the classic layout would put it
+      s.layout[statBlock(id)] = templateLayout('classic', s.stats, canvasSize(s.format, photo), s.fontScale)[statBlock(id)]!;
+    }
   }
 
   // ---- Drawing ------------------------------------------------------------------------------
@@ -139,7 +177,7 @@
     const background: ShareBackground = style.background === 'photo' && !photo ? 'transparent' : style.background;
     const currentPhoto = photo;
     let cancelled = false;
-    loadFont(style.font)
+    loadFont(style.font, style.italic)
       .catch(() => undefined)
       .then(() => {
         if (!cancelled) rects = renderShare(target, content, { ...style, background, photo: currentPhoto });
@@ -150,21 +188,29 @@
   });
 
   // ---- Moving blocks ------------------------------------------------------------------------
-  const [W, H] = $derived(SIZES[s.format]);
+  const [W, H] = $derived(canvasSize(s.format, photo));
   let dragStart = { px: 0, py: 0, x: 0, y: 0 };
 
+  /** The block's place in the layout; created from where it was drawn if the layout lacks it. */
+  function boxOf(block: BlockId) {
+    const r = rects?.[block];
+    s.layout[block] ??= { x: r ? r.x / W : 0.067, y: r ? r.y / H : 0.05, w: r ? r.w / W : 0, h: r ? r.h / H : 0 };
+    return s.layout[block]!;
+  }
   function startDrag(e: PointerEvent, block: BlockId) {
     dragging = block;
     s.template = 'custom';
-    dragStart = { px: e.clientX, py: e.clientY, x: s.layout[block].x, y: s.layout[block].y };
+    const box = boxOf(block);
+    dragStart = { px: e.clientX, py: e.clientY, x: box.x, y: box.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function moveDrag(e: PointerEvent, block: BlockId) {
     if (dragging !== block || !canvas) return;
     const box = canvas.getBoundingClientRect();
     const clamp = (v: number, max: number) => Math.min(Math.max(v, 0), max);
-    s.layout[block].x = clamp(dragStart.x + (e.clientX - dragStart.px) / box.width, 0.9);
-    s.layout[block].y = clamp(dragStart.y + (e.clientY - dragStart.py) / box.height, 0.95);
+    const target = boxOf(block);
+    target.x = clamp(dragStart.x + (e.clientX - dragStart.px) / box.width, 0.95);
+    target.y = clamp(dragStart.y + (e.clientY - dragStart.py) / box.height, 0.97);
   }
   function moveByKey(e: KeyboardEvent, block: BlockId) {
     const step = e.shiftKey ? 0.05 : 0.01;
@@ -173,20 +219,19 @@
     if (!d) return;
     e.preventDefault();
     s.template = 'custom';
-    s.layout[block].x = Math.min(Math.max(s.layout[block].x + d[0], 0), 0.9);
-    s.layout[block].y = Math.min(Math.max(s.layout[block].y + d[1], 0), 0.95);
+    const target = boxOf(block);
+    target.x = Math.min(Math.max(target.x + d[0], 0), 0.95);
+    target.y = Math.min(Math.max(target.y + d[1], 0), 0.97);
   }
-  const blocks: { id: BlockId; label: string }[] = [
-    { id: 'title', label: t.showSite },
-    { id: 'stats', label: t.shareInfo },
-    { id: 'graph', label: t.shareGraph },
-  ];
+  const blockLabel = (id: BlockId) =>
+    id === 'title' ? t.showSite : id === 'subtitle' ? t.showDate : id === 'graph' ? t.shareGraph : (available.find((a) => statBlock(a.id) === id)?.label ?? id);
+  const blocks = $derived(rects ? Object.keys(rects).map((id) => ({ id, label: blockLabel(id) })) : []);
   const pct = (v: number, total: number) => `${(v / total) * 100}%`;
 
   function applyTemplate(name: string) {
-    if (!(name in TEMPLATES)) return;
-    s.template = name as keyof typeof TEMPLATES;
-    s.layout = structuredClone(TEMPLATES[s.template]);
+    if (name !== 'classic' && name !== 'minimal' && name !== 'profile') return;
+    s.template = name;
+    relayout();
   }
 
   // ---- Photo, save, share -------------------------------------------------------------------
@@ -195,6 +240,7 @@
     if (!file) return;
     photo = await createImageBitmap(file, { imageOrientation: 'from-image' });
     s.background = 'photo';
+    relayout();
   }
 
   // The dive's own pictures on this device, offered as background
@@ -257,7 +303,7 @@
     <canvas bind:this={canvas}></canvas>
     {#if rects}
       {#each blocks as b (b.id)}
-        {@const r = rects[b.id]}
+        {@const r = rects[b.id]!}
         {#if r.w > 0}
           <div
             class="handle"
@@ -311,7 +357,7 @@
   {#if s.graph.show}
     <label>
       {t.graphSize}
-      <input type="range" min="0.1" max="0.6" step="0.01" bind:value={s.layout.graph.h} />
+      <input type="range" min="0.1" max="0.6" step="0.01" value={s.layout.graph?.h ?? 0.24} oninput={(e) => (boxOf('graph').h = Number(e.currentTarget.value))} />
     </label>
   {/if}
 </section>
@@ -329,10 +375,19 @@
     </label>
     <label>
       {t.format}
-      <select bind:value={s.format}>
+      <select
+        value={s.format}
+        onchange={(e) => {
+          s.format = e.currentTarget.value as ShareFormat;
+          relayout();
+        }}
+      >
         <option value="portrait">4:5</option>
         <option value="square">1:1</option>
         <option value="story">9:16</option>
+        <option value="landscape">{t.formatLandscape}</option>
+        <option value="wide">{t.formatWide}</option>
+        {#if photo && s.background === 'photo'}<option value="photo">{t.formatPhoto}</option>{/if}
       </select>
     </label>
     <label>
@@ -347,6 +402,9 @@
         <option value="ocean">{t.themeOcean}</option>
         <option value="ice">{t.themeIce}</option>
         <option value="deep">{t.themeDeep}</option>
+        <option value="coral">{t.themeCoral}</option>
+        <option value="sunset">{t.themeSunset}</option>
+        <option value="lava">{t.themeLava}</option>
       </select>
     </label>
     <label>
@@ -358,11 +416,22 @@
       </select>
     </label>
     <label>
-      {t.columns}
-      <select bind:value={s.columns}>
-        {#each [1, 2, 3] as n}<option value={n}>{n}</option>{/each}
-      </select>
+      {t.fontSize}
+      <input
+        type="range"
+        min="0.6"
+        max="1.6"
+        step="0.05"
+        value={s.fontScale}
+        oninput={(e) => {
+          s.fontScale = Number(e.currentTarget.value);
+          relayout();
+        }}
+      />
     </label>
+  </div>
+  <div class="chips">
+    <button class="chip" aria-pressed={s.italic} onclick={() => (s.italic = !s.italic)}><i>{t.italic}</i></button>
   </div>
   {#if photoPreviews.length > 0}
     <h3>{t.divePhotos}</h3>

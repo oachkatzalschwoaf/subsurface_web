@@ -206,7 +206,7 @@ const en = {
   footerNote: 'Independent project, not an official Subsurface service. Use at your own risk; keep backups.',
   columns: 'Columns',
   graphSize: 'Profile height',
-  dragHint: 'Drag title, details and profile to move them in the image.',
+  dragHint: 'Every field can be dragged to its own place in the image.',
   // dive notes and editing
   noteTitle: 'Notes before the FIT file',
   noteHint:
@@ -303,6 +303,17 @@ const en = {
   tripEdit: 'Edit trip',
   tripEditTitle: 'Edit trip',
   tripNotes: 'Notes on the trip',
+  // share image, more options
+  fontSize: 'Text size',
+  italic: 'Italic',
+  themeCoral: 'Coral',
+  themeSunset: 'Sunset',
+  themeLava: 'Lava',
+  formatLandscape: '4:3 landscape',
+  formatWide: '16:9 landscape',
+  formatPhoto: 'Like the photo',
+  statTempMin: 'Water min.',
+  statTempAvg: 'Water avg.',
 };
 
 type Strings = typeof en;
@@ -516,7 +527,7 @@ const de: Strings = {
   footerNote: 'Unabhängiges Projekt, kein offizielles Angebot von Subsurface. Nutzung auf eigene Gefahr; Backups machen.',
   columns: 'Spalten',
   graphSize: 'Profilhöhe',
-  dragHint: 'Titel, Angaben und Profil lassen sich im Bild verschieben.',
+  dragHint: 'Jedes Feld lässt sich im Bild einzeln verschieben.',
   // dive notes and editing
   noteTitle: 'Vormerken ohne FIT-Datei',
   noteHint:
@@ -614,6 +625,17 @@ const de: Strings = {
   tripEdit: 'Reise bearbeiten',
   tripEditTitle: 'Reise bearbeiten',
   tripNotes: 'Notizen zur Reise',
+  // share image, more options
+  fontSize: 'Schriftgröße',
+  italic: 'Kursiv',
+  themeCoral: 'Koralle',
+  themeSunset: 'Sonnenuntergang',
+  themeLava: 'Lava',
+  formatLandscape: '4:3 quer',
+  formatWide: '16:9 quer',
+  formatPhoto: 'Wie das Foto',
+  statTempMin: 'Wasser min.',
+  statTempAvg: 'Wasser Ø',
 };
 
 export const t: Strings = navigator.language.toLowerCase().startsWith('de') ? de : en;
