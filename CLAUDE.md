@@ -48,7 +48,8 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   Files are `GitTree` = `Map<name, string | GitTree>`; `flattenTree`/`unflattenTree` convert to
   path maps (empty directories as `path/`).
 - **Byte-exact round trip is the central invariant**: parse → serialize must reproduce every file
-  of a repository written by Subsurface. Number formats (`units.ts`: `put_milli`, `lrint`),
+  of a repository written by Subsurface (sources: github.com/subsurface/subsurface, `core/`; FIT
+  fields: libdivecomputer `src/garmin_parser.c`). Number formats (`units.ts`: `put_milli`, `lrint`),
   string quoting (`text.ts`), line order, "write only when changed" sample rules and directory
   naming relative to the trip date all follow the C++ code line by line. When changing the
   writer, read the corresponding Subsurface source first.
@@ -66,8 +67,9 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   drafts that describe user input independently of a logbook copy and are applied later.
   `app/presets.ts`: equipment presets (never pressures) and suggestions taken from the logbook
   (cylinder types, suits, buddies); the web app keeps presets in `localStorage` (`lib/gear.ts`).
-  `app/edits.ts`: changes to existing dives (field-level, keyed by the dive's start time) and sites,
-  applied to a freshly fetched logbook at sync. `app/notes.ts`: notes taken before a FIT file
+  `app/edits.ts`: changes to existing dives (field-level, keyed by the dive's start time; also
+  pictures and deletion), to sites (by uuid) and to trips (by location + first dive), applied to a
+  freshly fetched logbook at sync. Deleting keeps the other dive numbers, as Subsurface does. `app/notes.ts`: notes taken before a FIT file
   exists, matched to dives by time, or turned into a dive without samples (model
   "manually added dive", for which Subsurface draws a stand-in profile).
   `app/pictures.ts`: picture references ("Topside/<date time site>/<name>", so Subsurface's
@@ -85,14 +87,21 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
 
 ### apps/web — Svelte 5 (runes) + Vite
 
-- `lib/workspace.svelte.ts` is the app state: offline copy of the logbook and pending draft
-  batches in IndexedDB (`lib/db.ts`), sync = fetch fresh → apply pending → push (retry once on
-  conflict), import/transfer/copy/restore. `view` = logbook with pending dives applied.
+- `lib/workspace.svelte.ts` is the app state, all in IndexedDB (`lib/db.ts`): offline copy of the
+  logbook, pending draft batches, pending dive/site/trip edits, dive notes and picture metadata
+  (`lib/media.ts`). Sync = fetch fresh → apply batches → dive edits → site edits → trip edits →
+  one push (retry once on conflict); local mode applies changes directly. `view` = logbook with
+  everything pending applied. Deleting a not yet synced dive only drops its draft.
 - `lib/sources.ts` — cloud / own git / local sources, `remoteFor()` builds the remote incl. the
   proxy URL, password-manager helpers. Secrets stay in memory; nothing writes them to storage.
-- `components/` — `Setup`, `DiveList`, `DiveDetail` + `DiveChart` (depth/temperature/heart rate
-  as separate panels on one time axis, no dual axes), `ShareCard` + `lib/share-render.ts`
-  (canvas share image), `AddDives`, `DataPage`. Routing is hash-based (`#/dive/<when>` etc.).
+- `components/` — `DiveChart` draws depth/temperature/heart rate as separate panels on one time
+  axis (no dual axes). `DetailsFields` is the one form for new dives, notes and edits. Routing is
+  hash-based (`#/dive/<when>`, `#/edit/<when>`, `#/share/<when>`, `#/site/<uuid>`,
+  `#/trip/<first when>`, `#/stats`); from 900 px width the log shows list and dive side by side.
+- `lib/share-render.ts` — canvas share image. Every field is its own block in a relative layout
+  (`title`, `subtitle`, `graph`, `stat:<id>`); sizes scale with `min(W, H) / 1080`. Editor
+  settings live in `localStorage` (`topside.share`, `version: 2`; older ones are converted).
+  Fonts come from Fontsource and must be SIL OFL.
 - `lib/i18n.ts` — `en` defines the keys, `de` is typed by it; add every string to both.
 - `pwa.ts` — Vite plugin that generates `manifest.webmanifest` (with `VITE_APP_NAME`) and `sw.js`
   caching the build; `git-proxy.php` is never cached.
@@ -115,6 +124,11 @@ keep both allowlists in sync. `public/.htaccess` sets a strict CSP (no inline st
   checkout: `core.autocrlf` would otherwise change line endings.
 - Sync tests run against a local `git http-backend` server with Basic auth whose `HEAD` points
   nowhere, like the cloud (`test/helpers/git-server.ts`).
+- The XML export writes the computed `sac` like Subsurface; `otu`/`cns` need Subsurface's deco
+  model and are left out. The local XML test compares against a real Subsurface export line by
+  line with only those two removed.
+- There are no browser tests in the repository; UI changes are checked by hand or with ad-hoc
+  headless-browser scripts.
 - TypeScript is strict (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` in core).
   Imports use `.ts` extensions. Avoid TS-only runtime syntax such as parameter properties: scripts
   run with Node's built-in type stripping.
