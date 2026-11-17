@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+  <!-- dive flag on a pole; the pole's foot (x 4, y 39) marks the position -->
+  <path d="M4 39V3" stroke="#1b1b1b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M5 4h24v18H5z" fill="#d7191f" stroke="#1b1b1b" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M5.8 4.8L28.2 21.2" stroke="#fff" stroke-width="4.5"/>
+  <path d="M5 4h24v18H5z" fill="none" stroke="#1b1b1b" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

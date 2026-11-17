@@ -2,6 +2,8 @@ const en = {
   /** after the app name in the header and the window title */
   appFor: 'for Subsurface',
   aboutSubsurface: 'Subsurface, the original dive log program',
+  map: 'Map',
+  mapEmpty: 'No dive site has a position yet.',
   tagline: 'Garmin dives straight into your Subsurface logbook',
   email: 'Subsurface cloud e-mail',
   password: 'Password',
@@ -339,6 +341,8 @@ type Strings = typeof en;
 const de: Strings = {
   appFor: 'für Subsurface',
   aboutSubsurface: 'Subsurface, das ursprüngliche Tauchlogbuch-Programm',
+  map: 'Karte',
+  mapEmpty: 'Noch kein Tauchplatz hat eine Position.',
   tagline: 'Garmin-Tauchgänge direkt ins Subsurface-Logbuch',
   email: 'E-Mail der Subsurface-Cloud',
   password: 'Passwort',

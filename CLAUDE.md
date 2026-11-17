@@ -97,7 +97,10 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
 - `components/` — `DiveChart` draws depth/temperature/heart rate as separate panels on one time
   axis (no dual axes). `DetailsFields` is the one form for new dives, notes and edits. Routing is
   hash-based (`#/dive/<when>`, `#/edit/<when>`, `#/share/<when>`, `#/site/<uuid>`,
-  `#/trip/<first when>`, `#/stats`); from 900 px width the log shows list and dive side by side.
+  `#/trip/<first when>`, `#/stats`, `#/map`); from 900 px width the log shows list and dive side by
+  side. `MapPage` loads Leaflet on demand and shows one flag per dive site with a position (dives
+  store no position of their own; FIT entry/exit points go into the site at import); popups are
+  built from DOM nodes, never HTML strings. Tiles: OpenStreetMap only (Esri imagery needs a licence).
 - `lib/share-render.ts` — canvas share image. Every field is its own block in a relative layout
   (`title`, `subtitle`, `graph`, `stat:<id>`); sizes scale with `min(W, H) / 1080`. Editor
   settings live in `localStorage` (`topside.share`, `version: 2`; older ones are converted).
@@ -117,7 +120,9 @@ git smart-HTTP (`git-proxy.php/<host>/<path>`). Only the Subsurface cloud hosts 
 in `git-proxy.config.php` (see `.example.php`, never committed), and only the three git
 endpoints; disallowed hosts get 421. The Vite dev server has the same proxy in `vite.config.ts` —
 keep both allowlists in sync. `public/.htaccess` sets a strict CSP (no inline styles, images from
-`self`/`blob:`/`data:`), passes the Authorization header to PHP and enables `AcceptPathInfo`.
+`self`/`blob:`/`data:` and map tiles from `tile.openstreetmap.org`), `Referrer-Policy: no-referrer`
+(the tile layer sends `strict-origin`, as OpenStreetMap asks for a referrer), passes the
+Authorization header to PHP and enables `AcceptPathInfo`.
 
 ## Rules
 

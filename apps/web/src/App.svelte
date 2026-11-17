@@ -10,6 +10,7 @@
   import EditSite from './components/EditSite.svelte';
   import EditTrip from './components/EditTrip.svelte';
   import InstallHint from './components/InstallHint.svelte';
+  import MapPage from './components/MapPage.svelte';
   import Setup from './components/Setup.svelte';
   import ShareCard from './components/ShareCard.svelte';
   import StatsPage from './components/StatsPage.svelte';
@@ -46,11 +47,12 @@
   // Wide screens (PC, tablet, phone held sideways) show the list and one dive side by side.
   const wide = new MediaQuery('(min-width: 900px)');
   const showStats = $derived(route === '#/stats');
+  const showMap = $derived(route === '#/map');
   // #/trip/<time of its first dive>
   const editingTrip = $derived(
     route.startsWith('#/trip/') && logbook ? (listTrips(logbook).find((e) => String(e.first) === route.slice('#/trip/'.length)) ?? null) : null,
   );
-  const split = $derived(wide.current && tab === 'log' && !shareDive && !editingSite && !showStats && !editingTrip);
+  const split = $derived(wide.current && tab === 'log' && !shareDive && !editingSite && !showStats && !showMap && !editingTrip);
   /** The dive on the right-hand side: the opened one, otherwise the newest. */
   const shownDive = $derived(editingDive ?? detailDive ?? (split ? (logbook?.dives.at(-1) ?? null) : null));
   function openDive(dive: Dive) {
@@ -210,6 +212,7 @@
         </small>
       </div>
       <div class="summary-actions">
+        <a class="link" href="#/map">{t.map}</a>
         <a class="link" href="#/stats">{t.stats}</a>
         {#if remote}
           <button class="link" disabled={busy || !online} onclick={sync}>{busy ? t.signingIn : t.syncNow}</button>
@@ -260,7 +263,7 @@
 {/if}
 </div>
 
-<main class:roomy={split || shareDive !== null || tab === 'data'}>
+<main class:roomy={split || shareDive !== null || showMap || tab === 'data'}>
   {#if !workspace.loaded}
     <p class="hint">…</p>
   {:else if !workspace.source}
@@ -279,6 +282,10 @@
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.stats}</h2>
     <StatsPage {logbook} onOpen={openDive} />
+  {:else if logbook && showMap}
+    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
+    <h2>{t.map}</h2>
+    <MapPage {logbook} />
   {:else if logbook && editingSite}
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.siteEditTitle}</h2>

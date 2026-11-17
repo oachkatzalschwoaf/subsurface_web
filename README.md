@@ -39,6 +39,7 @@ official mobile app, use those.
 - **Offline:** the logbook is kept on the device; new dives are stored and uploaded with the next
   sync. Installable on Android and iOS (home screen).
 - **Logbook and dive pages** with depth, temperature and heart-rate charts.
+- **Map** of all dive sites with a position, as flags; a flag lists its dives and opens them.
 - **Share images** with selectable numbers, fonts, colours, text size, portrait or landscape
   formats, a profile of adjustable height and width, and a transparent, gradient, single-colour or
   photo background (a photo starts in its own format); every field can be moved on its own.
@@ -95,6 +96,9 @@ your web space.
   host is reachable through your proxy for anyone who can open your installation, so consider
   protecting the folder with a password.
 - **Own app name:** `VITE_APP_NAME=...` in `apps/web/.env.local` before building.
+- **Map tiles** come from `tile.openstreetmap.org` (allowed in the CSP in `.htaccess`), and only while
+  the map is open. The OpenStreetMap servers then see the visitor's IP address; mention this on your
+  privacy page (the template has a paragraph for it).
 - **Legal notice / privacy page:** copy `legal.example.html` to `legal.html`, fill it in; the app
   links it in the footer when present. The template is in German and written for Austria; check what
   your country requires — it is not legal advice.
