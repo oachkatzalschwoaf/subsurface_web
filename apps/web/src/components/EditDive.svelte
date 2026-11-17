@@ -11,7 +11,15 @@
     busy,
     onSave,
     onCancel,
-  }: { logbook: Logbook; dive: Dive; busy: boolean; onSave: (edit: DiveEdit) => Promise<boolean>; onCancel: () => void } = $props();
+    onDelete,
+  }: {
+    logbook: Logbook;
+    dive: Dive;
+    busy: boolean;
+    onSave: (edit: DiveEdit) => Promise<boolean>;
+    onCancel: () => void;
+    onDelete?: (() => void) | undefined;
+  } = $props();
 
   // svelte-ignore state_referenced_locally
   const before = detailsOf(dive);
@@ -64,6 +72,9 @@
     <button type="button" class="secondary" onclick={onCancel}>{t.cancel}</button>
     <button class="primary" disabled={busy}>{busy ? t.uploading : t.save}</button>
   </div>
+  {#if onDelete}
+    <button type="button" class="secondary danger" disabled={busy} onclick={onDelete}>{t.deleteDive}</button>
+  {/if}
 </form>
 
 <style>
@@ -73,5 +84,10 @@
   }
   .row button {
     flex: 1;
+  }
+  .danger {
+    margin-top: 12px;
+    color: var(--error);
+    border-color: var(--error);
   }
 </style>

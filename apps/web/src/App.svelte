@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SyncError, type Dive, type DiveDraft, type DiveEdit, type SiteEdit, type TripChoice } from '@topside/core';
+  import { listTrips, SyncError, type Dive, type DiveDraft, type DiveEdit, type SiteEdit, type Trip, type TripChoice, type TripEdit } from '@topside/core';
   import { onMount } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import AddDives from './components/AddDives.svelte';
@@ -8,6 +8,7 @@
   import DiveList from './components/DiveList.svelte';
   import EditDive from './components/EditDive.svelte';
   import EditSite from './components/EditSite.svelte';
+  import EditTrip from './components/EditTrip.svelte';
   import InstallHint from './components/InstallHint.svelte';
   import Setup from './components/Setup.svelte';
   import ShareCard from './components/ShareCard.svelte';
@@ -45,7 +46,11 @@
   // Wide screens (PC, tablet, phone held sideways) show the list and one dive side by side.
   const wide = new MediaQuery('(min-width: 900px)');
   const showStats = $derived(route === '#/stats');
-  const split = $derived(wide.current && tab === 'log' && !shareDive && !editingSite && !showStats);
+  // #/trip/<time of its first dive>
+  const editingTrip = $derived(
+    route.startsWith('#/trip/') && logbook ? (listTrips(logbook).find((e) => String(e.first) === route.slice('#/trip/'.length)) ?? null) : null,
+  );
+  const split = $derived(wide.current && tab === 'log' && !shareDive && !editingSite && !showStats && !editingTrip);
   /** The dive on the right-hand side: the opened one, otherwise the newest. */
   const shownDive = $derived(editingDive ?? detailDive ?? (split ? (logbook?.dives.at(-1) ?? null) : null));
   function openDive(dive: Dive) {
@@ -114,6 +119,21 @@
 
   async function editSite(edit: SiteEdit): Promise<boolean> {
     return saveChange(() => workspace.editSite(edit), `#/`);
+  }
+
+  async function editTrip(edit: TripEdit): Promise<boolean> {
+    return saveChange(() => workspace.editTrip(edit), `#/`);
+  }
+  function openTrip(trip: Trip) {
+    const entry = logbook ? listTrips(logbook).find((e) => e.trip === trip) : undefined;
+    if (entry) go(`#/trip/${entry.first}`);
+  }
+
+  async function deleteDive(dive: Dive) {
+    const pictures = workspace.media.filter((m) => m.diveWhen === dive.when).length;
+    if (!confirm(t.deleteDiveConfirm(pictures))) return;
+    // the dive and its edit page are gone: go to the list
+    if (await applyChange(() => workspace.deleteDive(dive))) location.replace('#/');
   }
 
   async function editDive(edit: DiveEdit): Promise<boolean> {
@@ -190,7 +210,7 @@
     </section>
     <!-- Side by side the list has little height (phone held sideways), so the dives come first. -->
     {#if hintFirst}<InstallHint dismissible />{/if}
-    <DiveList {logbook} pending={view?.pendingDives} selected={current} onOpen={openDive} />
+    <DiveList {logbook} pending={view?.pendingDives} selected={current} onOpen={openDive} onEditTrip={canEdit ? openTrip : undefined} />
     {#if !hintFirst}<InstallHint dismissible />{/if}
   {/if}
 {/snippet}
@@ -199,7 +219,7 @@
   {#if logbook && editingDive === dive}
     <h2>{t.editTitle}</h2>
     {#key dive}
-      <EditDive {logbook} {dive} {busy} onSave={editDive} onCancel={() => history.back()} />
+      <EditDive {logbook} {dive} {busy} onSave={editDive} onCancel={() => history.back()} onDelete={() => deleteDive(dive)} />
     {/key}
   {:else if logbook}
     {#if view?.pendingDives.has(dive)}<p class="hint">⏳ {t.notSynced}</p>{/if}
@@ -240,6 +260,12 @@
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.shareTitle}</h2>
     <ShareCard {logbook} dive={shareDive} />
+  {:else if logbook && editingTrip}
+    <button class="link back" onclick={() => history.back()}>← {t.back}</button>
+    <h2>{t.tripEditTitle}</h2>
+    {#key editingTrip.trip}
+      <EditTrip {logbook} entry={editingTrip} {busy} onSave={editTrip} onCancel={() => history.back()} />
+    {/key}
   {:else if logbook && showStats}
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.stats}</h2>

@@ -8,7 +8,15 @@
     pending,
     selected = null,
     onOpen,
-  }: { logbook: Logbook; pending?: Set<Dive> | undefined; selected?: Dive | null; onOpen: (dive: Dive) => void } = $props();
+    onEditTrip,
+  }: {
+    logbook: Logbook;
+    pending?: Set<Dive> | undefined;
+    selected?: Dive | null;
+    onOpen: (dive: Dive) => void;
+    /** Missing = trips cannot be edited */
+    onEditTrip?: ((trip: Trip) => void) | undefined;
+  } = $props();
 
   interface Group {
     key: Trip | string;
@@ -78,10 +86,19 @@
         </li>
       {/each}
     </ul>
+    {#if onEditTrip && typeof group.key !== 'string'}
+      {@const trip = group.key}
+      <button class="link trip-edit" onclick={() => onEditTrip(trip)}>{t.tripEdit}</button>
+    {/if}
   </details>
 {/each}
 
 <style>
+  .trip-edit {
+    display: block;
+    margin: 4px 10px 10px auto;
+    font-size: 0.85rem;
+  }
   .search {
     display: flex;
     flex-direction: column;

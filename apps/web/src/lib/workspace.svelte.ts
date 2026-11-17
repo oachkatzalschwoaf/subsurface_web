@@ -10,6 +10,7 @@ import {
   applyDrafts,
   applyEdit,
   applySiteEdit,
+  applyTripEdit,
   commitMessageForChanges,
   exifDate,
   mergeEdits,
@@ -35,6 +36,8 @@ import {
   type DiveEdit,
   type DiveSite,
   type SiteEdit,
+  type Trip,
+  type TripEdit,
   type DiveNote,
   type GitTree,
   type Logbook,
@@ -87,6 +90,7 @@ const WORKSPACE_KEY = 'workspace';
 const PENDING_KEY = 'pending';
 const EDITS_KEY = 'edits';
 const SITE_EDITS_KEY = 'siteEdits';
+const TRIP_EDITS_KEY = 'tripEdits';
 const NOTES_KEY = 'notes';
 
 /** Two edits of the same dive as one (see mergeEdits). */
@@ -122,6 +126,8 @@ class Workspace {
   edits = $state.raw<DiveEdit[]>([]);
   /** Changes to dive sites, not synced yet. */
   siteEdits = $state.raw<SiteEdit[]>([]);
+  /** Changes to trips, not synced yet; applied in order (a trip is named by its location) */
+  tripEdits = $state.raw<TripEdit[]>([]);
   /** Notes for dives whose FIT file does not exist yet. Kept on this device only. */
   notes = $state.raw<DiveNote[]>([]);
   /** Pictures kept on this device */
@@ -153,10 +159,11 @@ class Workspace {
       if (dive) pendingDives.add(dive);
     }
     for (const edit of this.siteEdits) applySiteEdit(logbook, edit);
+    for (const edit of this.tripEdits) applyTripEdit(logbook, edit);
     return { logbook, pendingDives };
   });
 
-  pendingCount = $derived(this.pending.reduce((n, b) => n + b.drafts.length, 0) + this.edits.length + this.siteEdits.length);
+  pendingCount = $derived(this.pending.reduce((n, b) => n + b.drafts.length, 0) + this.edits.length + this.siteEdits.length + this.tripEdits.length);
   label = $derived(this.source ? sourceLabel(this.source) : '');
 
   async load(): Promise<void> {
@@ -172,6 +179,7 @@ class Workspace {
       this.pending = (await dbGet<PendingBatch[]>(PENDING_KEY)) ?? [];
       this.edits = (await dbGet<DiveEdit[]>(EDITS_KEY)) ?? [];
       this.siteEdits = (await dbGet<SiteEdit[]>(SITE_EDITS_KEY)) ?? [];
+      this.tripEdits = (await dbGet<TripEdit[]>(TRIP_EDITS_KEY)) ?? [];
       this.notes = (await dbGet<DiveNote[]>(NOTES_KEY)) ?? [];
       this.media = await loadMediaList();
     } finally {
@@ -203,6 +211,11 @@ class Workspace {
   private async saveSiteEdits(edits: SiteEdit[]): Promise<void> {
     await dbSet(SITE_EDITS_KEY, edits);
     this.siteEdits = edits;
+  }
+
+  private async saveTripEdits(edits: TripEdit[]): Promise<void> {
+    await dbSet(TRIP_EDITS_KEY, edits);
+    this.tripEdits = edits;
   }
 
   // ---- Notes ------------------------------------------------------------------------------------
@@ -267,6 +280,7 @@ class Workspace {
     await dbDelete(PENDING_KEY);
     await dbDelete(EDITS_KEY);
     await dbDelete(SITE_EDITS_KEY);
+    await dbDelete(TRIP_EDITS_KEY);
     if (!keepDeviceData) {
       await dbDelete(NOTES_KEY);
       this.notes = [];
@@ -280,6 +294,7 @@ class Workspace {
     this.pending = [];
     this.edits = [];
     this.siteEdits = [];
+    this.tripEdits = [];
     this.problems = [];
     this.secret = null;
     navigator.credentials?.preventSilentAccess?.();
@@ -308,6 +323,7 @@ class Workspace {
     await this.savePending([]);
     await this.saveEdits([]);
     await this.saveSiteEdits([]);
+    await this.saveTripEdits([]);
   }
 
   // ---- Editing dives ----------------------------------------------------------------------------
@@ -325,6 +341,44 @@ class Workspace {
       return;
     }
     await this.saveEdits(mergeEdit(this.edits, structuredClone(edit)));
+  }
+
+  /**
+   * Delete a dive. One that is not synced yet is simply dropped from the pending dives; its
+   * pictures on this device go as well.
+   */
+  async deleteDive(dive: Dive): Promise<void> {
+    if (!this.source || !this.tree) throw new Error('No logbook');
+    const when = dive.when;
+    const pendingNew = this.pending.some((b) => b.drafts.some((d) => d.fit.dive.when === when));
+    if (pendingNew) {
+      const pending = this.pending
+        .map((b) => ({ ...b, drafts: b.drafts.filter((d) => d.fit.dive.when !== when) }))
+        .filter((b) => b.drafts.length > 0);
+      await this.savePending(pending);
+      await this.saveEdits(this.edits.filter((e) => e.when !== when));
+    } else {
+      await this.editDive({ when, changes: {}, delete: true });
+    }
+    const gone = this.media.filter((m) => m.diveWhen === when);
+    for (const item of gone) await deleteMedia(item.filename);
+    if (gone.length) {
+      const media = this.media.filter((m) => m.diveWhen !== when);
+      await saveMediaList(media);
+      this.media = media;
+    }
+  }
+
+  /** Rename a trip or change its notes; like editDive(). */
+  async editTrip(edit: TripEdit): Promise<void> {
+    if (!this.source || !this.tree) throw new Error('No logbook');
+    if (this.source.kind === 'local') {
+      const logbook = parseLogbook(this.tree).logbook;
+      if (!applyTripEdit(logbook, edit)) throw new Error('This trip is no longer in the logbook');
+      await this.save(this.source, serializeLogbook(logbook), null);
+      return;
+    }
+    await this.saveTripEdits([...this.tripEdits, structuredClone(edit)]);
   }
 
   /** Change a dive site; like editDive(). Only sites that are already synced can be changed. */
@@ -411,33 +465,43 @@ class Workspace {
         added.push(...result.added);
         skipped += result.duplicates.length;
       }
+      const deleted: Dive[] = [];
       for (const edit of this.edits) {
         // an edit of a dive that was deleted elsewhere meanwhile is dropped
         const dive = applyEdit(logbook, edit);
-        if (dive) edited.push(dive);
-        else skipped++;
+        if (!dive) skipped++;
+        else if (edit.delete) deleted.push(dive);
+        else edited.push(dive);
       }
       const sites: DiveSite[] = [];
       for (const edit of this.siteEdits) {
         const site = applySiteEdit(logbook, edit);
         if (site) sites.push(site);
       }
-      if (added.length === 0 && edited.length === 0 && sites.length === 0) {
+      const trips: Trip[] = [];
+      for (const edit of this.tripEdits) {
+        const trip = applyTripEdit(logbook, edit);
+        if (trip) trips.push(trip);
+      }
+      const changes = edited.length + deleted.length + sites.length + new Set(trips).size;
+      if (added.length === 0 && changes === 0) {
         await this.save(source, snapshot.tree, snapshot.commit);
         await this.savePending([]);
         await this.saveEdits([]);
         await this.saveSiteEdits([]);
+        await this.saveTripEdits([]);
         return { added, skipped, edited: 0 };
       }
       try {
-        const message = commitMessageForChanges(logbook, added, edited, agent(), sites);
+        const message = commitMessageForChanges(logbook, added, edited, agent(), { sites, trips, deleted });
         const commit = await pushLogbook(env, remote, snapshot, logbook, commitInfo(remote, message));
         await this.save(source, serializeLogbook(logbook), commit);
         await this.savePending([]);
         await this.saveEdits([]);
         await this.saveSiteEdits([]);
+        await this.saveTripEdits([]);
         await rememberSecret(credentialId(source), secret, sourceLabel(source));
-        return { added, skipped, edited: edited.length + sites.length };
+        return { added, skipped, edited: changes };
       } catch (error) {
         if (error instanceof SyncError && error.kind === 'conflict' && attempt < 2) continue;
         throw error;

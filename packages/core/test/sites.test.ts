@@ -90,7 +90,7 @@ describe('editing a dive site', () => {
     const path = '01-Divesites/Site-00c0ffee';
     expect(now.get(path)).toBe(original.get(path)!.replace('name "Lake Spot"', 'name "Lake Spot North"').replace('gps 47.906674 -13.567017', 'gps 47.910000 -13.500000'));
     for (const [p, content] of original) if (p !== path) expect(now.get(p)).toBe(content);
-    expect(commitMessageForChanges(logbook, [], [], 'Topside:test', [site!])).toBe(
+    expect(commitMessageForChanges(logbook, [], [], 'Topside:test', { sites: [site!] })).toBe(
       'Changes made: \n\nEdit dive site "Lake Spot North"\n\nCreated by Topside:test\n',
     );
   });

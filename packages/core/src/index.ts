@@ -22,6 +22,7 @@ export {
 export {
   applyEdit,
   applySiteEdit,
+  applyTripEdit,
   changedDetails,
   detailsOf,
   formatCoordinates,
@@ -30,6 +31,7 @@ export {
   parseCoordinates,
   type DiveEdit,
   type SiteEdit,
+  type TripEdit,
 } from './app/edits.ts';
 export {
   addPicture,

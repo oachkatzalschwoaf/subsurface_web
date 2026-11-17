@@ -295,6 +295,14 @@ const en = {
   statsNote: 'Dives marked as invalid are not counted. Air use (SAC) is computed as in Subsurface.',
   search: 'Search: site, buddy, tag, notes, #number',
   searchCount: (n: number, total: number) => `${n} of ${total} dives`,
+  // deleting dives, editing trips
+  deleteDive: 'Delete dive',
+  deleteDiveConfirm: (pictures: number) =>
+    `Delete this dive from the logbook?${pictures ? ` Its ${pictures} ${pictures === 1 ? 'picture' : 'pictures'} on this device will be deleted too.` : ''} The other dives keep their numbers.`,
+  diveDeleted: 'Dive deleted.',
+  tripEdit: 'Edit trip',
+  tripEditTitle: 'Edit trip',
+  tripNotes: 'Notes on the trip',
 };
 
 type Strings = typeof en;
@@ -598,6 +606,14 @@ const de: Strings = {
   statsNote: 'Als ungültig markierte Tauchgänge zählen nicht. Luftverbrauch (SAC) wie in Subsurface berechnet.',
   search: 'Suche: Platz, Buddy, Tag, Notiz, #Nummer',
   searchCount: (n, total) => `${n} von ${total} Tauchgängen`,
+  // deleting dives, editing trips
+  deleteDive: 'Tauchgang löschen',
+  deleteDiveConfirm: (pictures) =>
+    `Diesen Tauchgang aus dem Logbuch löschen?${pictures ? ` ${pictures === 1 ? 'Sein Bild' : `Seine ${pictures} Bilder`} auf diesem Gerät ${pictures === 1 ? 'wird' : 'werden'} ebenfalls gelöscht.` : ''} Die anderen Tauchgänge behalten ihre Nummern.`,
+  diveDeleted: 'Tauchgang gelöscht.',
+  tripEdit: 'Reise bearbeiten',
+  tripEditTitle: 'Reise bearbeiten',
+  tripNotes: 'Notizen zur Reise',
 };
 
 export const t: Strings = navigator.language.toLowerCase().startsWith('de') ? de : en;

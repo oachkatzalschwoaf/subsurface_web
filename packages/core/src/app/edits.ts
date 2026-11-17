@@ -5,8 +5,8 @@
  * lists only the fields the user changed. It can therefore be stored, and applied to a freshly
  * fetched logbook without undoing what somebody else changed in other fields meanwhile.
  */
-import { createSite } from '../subsurface/edit.ts';
-import { newCylinder, type Dive, type DiveSite, type Location, type Logbook, type Picture } from '../subsurface/model.ts';
+import { createSite, listTrips } from '../subsurface/edit.ts';
+import { newCylinder, type Dive, type DiveSite, type Location, type Logbook, type Picture, type Trip } from '../subsurface/model.ts';
 import { addPicture, removePicture } from './pictures.ts';
 import { milli, o2Permille, splitTags, type DiveDetails, type SiteChoice } from './drafts.ts';
 
@@ -21,6 +21,8 @@ export interface DiveEdit {
   addPictures?: Picture[];
   /** File names of picture references to remove */
   removePictures?: string[];
+  /** Remove the dive from the logbook */
+  delete?: boolean;
 }
 
 const amount = (value: number): number | null => (value > 0 ? value / 1000 : null);
@@ -64,11 +66,16 @@ export function changedDetails(before: DiveDetails, after: DiveDetails): Partial
 }
 
 export const isEmptyEdit = (edit: DiveEdit): boolean =>
-  Object.keys(edit.changes).length === 0 && edit.site === undefined && !edit.addPictures?.length && !edit.removePictures?.length;
+  Object.keys(edit.changes).length === 0 &&
+  edit.site === undefined &&
+  !edit.addPictures?.length &&
+  !edit.removePictures?.length &&
+  !edit.delete;
 
 /** Two edits of the same dive as one: field by field the later wins; pictures add up. */
 export function mergeEdits(earlier: DiveEdit, later: DiveEdit): DiveEdit {
   const merged: DiveEdit = { when: later.when, changes: { ...earlier.changes, ...later.changes } };
+  if (earlier.delete || later.delete) merged.delete = true;
   const site = later.site ?? earlier.site;
   if (site) merged.site = site;
   const removedLater = new Set(later.removePictures ?? []);
@@ -85,6 +92,12 @@ export function mergeEdits(earlier: DiveEdit, later: DiveEdit): DiveEdit {
 export function applyEdit(logbook: Logbook, edit: DiveEdit): Dive | null {
   const dive = logbook.dives.find((d) => d.when === edit.when);
   if (!dive) return null;
+  if (edit.delete) {
+    // like Subsurface, the other dives keep their numbers; a trip without dives goes away
+    logbook.dives.splice(logbook.dives.indexOf(dive), 1);
+    if (dive.trip && !logbook.dives.some((d) => d.trip === dive.trip)) logbook.trips = logbook.trips.filter((t) => t !== dive.trip);
+    return dive;
+  }
   const c = edit.changes;
 
   if (c.buddy !== undefined) dive.buddy = c.buddy.trim();
@@ -196,4 +209,23 @@ export function parseCoordinates(text: string): Location | null {
   if (!Number.isFinite(lat.value) || !Number.isFinite(lon.value) || Math.abs(lat.value) > 90 || Math.abs(lon.value) > 180) return null;
   if (lat.value === 0 && lon.value === 0) return null;
   return { lat: Math.round(lat.value * 1e6), lon: Math.round(lon.value * 1e6) };
+}
+
+// ---- Trips ----------------------------------------------------------------------------------
+
+/** A change to a trip, which is named by its location and the time of its first dive. */
+export interface TripEdit {
+  location: string;
+  first: number;
+  newLocation?: string;
+  notes?: string;
+}
+
+/** Apply a trip edit. Returns the changed trip, or null if the logbook no longer has it. */
+export function applyTripEdit(logbook: Logbook, edit: TripEdit): Trip | null {
+  const trip = listTrips(logbook).find((t) => t.trip.location === edit.location && t.first === edit.first)?.trip;
+  if (!trip) return null;
+  if (edit.newLocation !== undefined && edit.newLocation.trim()) trip.location = edit.newLocation.trim();
+  if (edit.notes !== undefined) trip.notes = edit.notes.trim();
+  return trip;
 }
