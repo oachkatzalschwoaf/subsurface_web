@@ -225,13 +225,21 @@
     return s.layout[block]!;
   }
   function startDrag(e: PointerEvent, block: BlockId) {
-    dragging = block;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     s.template = 'custom';
+    if (block === 'graph') {
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (fingers.size === 2) return startPinch();
+    }
+    dragging = block;
     const box = boxOf(block);
     dragStart = { px: e.clientX, py: e.clientY, x: box.x, y: box.y };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function moveDrag(e: PointerEvent, block: BlockId) {
+    if (block === 'graph' && fingers.has(e.pointerId)) {
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch) return movePinch();
+    }
     if (dragging !== block || !canvas) return;
     const box = canvas.getBoundingClientRect();
     const clamp = (v: number, max: number) => Math.min(Math.max(v, 0), max);
@@ -239,6 +247,53 @@
     target.x = clamp(dragStart.x + (e.clientX - dragStart.px) / box.width, 0.95);
     target.y = clamp(dragStart.y + (e.clientY - dragStart.py) / box.height, 0.97);
   }
+  function endDrag(e: PointerEvent, block: BlockId) {
+    if (block === 'graph') {
+      fingers.delete(e.pointerId);
+      if (pinch) {
+        pinch = null;
+        // the finger still down goes on moving the profile, from where it is now
+        const rest = [...fingers.values()][0];
+        if (rest) {
+          const box = boxOf('graph');
+          dragStart = { px: rest.x, py: rest.y, x: box.x, y: box.y };
+          return;
+        }
+      }
+    }
+    dragging = null;
+  }
+
+  // ---- Resizing the profile with two fingers ------------------------------------------------
+  // Spreading the fingers sideways changes the width, up and down the height (same limits as the
+  // sliders); the profile keeps its centre.
+  const fingers = new Map<number, { x: number; y: number }>();
+  let pinch: { dx: number; dy: number; box: { x: number; y: number; w: number; h: number }; width: number } | null = null;
+  /** below this distance in pixels between the fingers along an axis, that axis keeps its size */
+  const PINCH_MIN = 30;
+  function fingerSpan() {
+    const [a, b] = [...fingers.values()];
+    return { dx: Math.abs(a!.x - b!.x), dy: Math.abs(a!.y - b!.y) };
+  }
+  function startPinch() {
+    dragging = 'graph';
+    pinch = { ...fingerSpan(), box: { ...boxOf('graph') }, width: s.graphWidth };
+  }
+  function movePinch() {
+    if (!pinch) return;
+    const { dx, dy } = fingerSpan();
+    const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
+    const box = boxOf('graph');
+    const start = pinch.box;
+    const width = pinch.dx > PINCH_MIN ? clamp(pinch.width * (dx / pinch.dx), 0.3, 1) : pinch.width;
+    const h = pinch.dy > PINCH_MIN ? clamp(start.h * (dy / pinch.dy), 0.1, 0.6) : start.h;
+    s.graphWidth = width;
+    box.w = GRAPH_FULL_WIDTH * width;
+    box.h = h;
+    box.x = clamp(start.x + start.w / 2 - box.w / 2, 0, Math.max(0, 1 - box.w));
+    box.y = clamp(start.y + start.h / 2 - h / 2, 0, Math.max(0, 1 - h));
+  }
+
   function moveByKey(e: KeyboardEvent, block: BlockId) {
     const step = e.shiftKey ? 0.05 : 0.01;
     const delta: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
@@ -379,8 +434,8 @@
             style:height={pct(r.h, H)}
             onpointerdown={(e) => startDrag(e, b.id)}
             onpointermove={(e) => moveDrag(e, b.id)}
-            onpointerup={() => (dragging = null)}
-            onpointercancel={() => (dragging = null)}
+            onpointerup={(e) => endDrag(e, b.id)}
+            onpointercancel={(e) => endDrag(e, b.id)}
             onkeydown={(e) => moveByKey(e, b.id)}
           ></div>
         {/if}

@@ -209,7 +209,7 @@ const en = {
   columns: 'Columns',
   graphSize: 'Profile height',
   graphWidth: 'Profile width',
-  dragHint: 'Every field can be dragged to its own place in the image.',
+  dragHint: 'Every field can be dragged to its own place in the image; resize the profile with two fingers.',
   // dive notes and editing
   noteTitle: 'Notes before the FIT file',
   noteHint:
@@ -546,7 +546,7 @@ const de: Strings = {
   columns: 'Spalten',
   graphSize: 'Profilhöhe',
   graphWidth: 'Profilbreite',
-  dragHint: 'Jedes Feld lässt sich im Bild einzeln verschieben.',
+  dragHint: 'Jedes Feld lässt sich im Bild einzeln verschieben; das Profil mit zwei Fingern größer oder kleiner ziehen.',
   // dive notes and editing
   noteTitle: 'Vormerken ohne FIT-Datei',
   noteHint:
