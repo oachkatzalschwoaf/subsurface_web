@@ -16,10 +16,3 @@
     {/each}
   </select>
 </label>
-<p class="hint">{t.languageHint}</p>
-
-<style>
-  p {
-    margin: 0;
-  }
-</style>

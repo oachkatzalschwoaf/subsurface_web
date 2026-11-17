@@ -209,7 +209,7 @@ const en = {
   columns: 'Columns',
   graphSize: 'Profile height',
   graphWidth: 'Profile width',
-  dragHint: 'Every field can be dragged to its own place in the image; resize the profile with two fingers.',
+  dragHint: 'Every field can be dragged to its own place in the image.',
   // dive notes and editing
   noteTitle: 'Notes before the FIT file',
   noteHint:
@@ -325,7 +325,6 @@ const en = {
   // language and file names
   language: 'Language',
   languageAuto: (name: string) => `System language (${name})`,
-  languageHint: 'Stored on this device only.',
   fileLogbook: 'logbook',
   fileNewDives: 'new-dives',
   fileWithPictures: 'with-pictures',
@@ -546,7 +545,7 @@ const de: Strings = {
   columns: 'Spalten',
   graphSize: 'Profilhöhe',
   graphWidth: 'Profilbreite',
-  dragHint: 'Jedes Feld lässt sich im Bild einzeln verschieben; das Profil mit zwei Fingern größer oder kleiner ziehen.',
+  dragHint: 'Jedes Feld lässt sich im Bild einzeln verschieben.',
   // dive notes and editing
   noteTitle: 'Vormerken ohne FIT-Datei',
   noteHint:
@@ -663,7 +662,6 @@ const de: Strings = {
   // language and file names
   language: 'Sprache',
   languageAuto: (name) => `Systemsprache (${name})`,
-  languageHint: 'Wird nur auf diesem Gerät gespeichert.',
   fileLogbook: 'logbuch',
   fileNewDives: 'neue-tauchgaenge',
   fileWithPictures: 'mit-bildern',
