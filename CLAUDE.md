@@ -102,7 +102,11 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   (`title`, `subtitle`, `graph`, `stat:<id>`); sizes scale with `min(W, H) / 1080`. Editor
   settings live in `localStorage` (`topside.share`, `version: 2`; older ones are converted).
   Fonts come from Fontsource and must be SIL OFL.
-- `lib/i18n.ts` — `en` defines the keys, `de` is typed by it; add every string to both.
+- `lib/i18n.ts` — `en` defines the keys, `de` is typed by it; add every string to both. Language =
+  choice stored in `localStorage` (`topside.lang`), else the first system language the UI has,
+  else English. `t` and `locale` are live bindings that `setLanguage()` replaces; `App.svelte`
+  re-renders everything in a `{#key}` block, so read them at render time (component setup is fine,
+  module-level constants are not — `format.ts` caches its formatters per locale).
 - `pwa.ts` — Vite plugin that generates `manifest.webmanifest` (with `VITE_APP_NAME`) and `sw.js`
   caching the build; `git-proxy.php` is never cached.
 

@@ -46,6 +46,8 @@ official mobile app, use those.
 - **Trip mode:** copy the logbook into an own git repository before a trip, work with the copy, and
   transfer the new dives into the Subsurface cloud afterwards — the original stays untouched while
   travelling.
+- **English and German:** the app follows the system language and falls back to English; change it
+  under Data → Language (stored on the device).
 
 **Install on Android:** open the page in Chrome, then menu ⋮ → "Add to home screen" (or "Install
 app"). On iPhone: Safari → Share → "Add to Home Screen".
@@ -94,8 +96,8 @@ your web space.
   protecting the folder with a password.
 - **Own app name:** `VITE_APP_NAME=...` in `apps/web/.env.local` before building.
 - **Legal notice / privacy page:** copy `legal.example.html` to `legal.html`, fill it in; the app
-  links it in the footer when present. Check what your country requires — the template is not legal
-  advice.
+  links it in the footer when present. The template is in German and written for Austria; check what
+  your country requires — it is not legal advice.
 
 ## Development
 
@@ -109,6 +111,10 @@ npm run dev         # app on http://localhost:5173 with a built-in git proxy
 ```
 
 Live Server and similar static servers cannot run `git-proxy.php`; use `npm run dev` locally.
+
+**Translations** live in `apps/web/src/lib/i18n.ts`: `en` defines every string, other languages are
+typed by it. To add a language, add its object there and register it in `Lang`, `STRINGS`,
+`LANGUAGE_NAMES` and `FALLBACK_LOCALE`.
 More in [CLAUDE.md](CLAUDE.md) and [docs/format.md](docs/format.md).
 
 ## License

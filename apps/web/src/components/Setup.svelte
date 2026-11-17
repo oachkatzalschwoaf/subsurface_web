@@ -6,6 +6,7 @@
   import type { RemoteSource } from '../lib/sources.ts';
   import { emptyLogbook, EmptyRemoteError, workspace } from '../lib/workspace.svelte.ts';
   import { parseLogbook } from '@topside/core';
+  import LanguagePicker from './LanguagePicker.svelte';
   import RemoteForm from './RemoteForm.svelte';
 
   let { onError }: { onError: (e: unknown) => void } = $props();
@@ -80,6 +81,9 @@
       <strong>{t.srcLocal}</strong><span>{t.srcLocalHint}</span>
     </button>
   </section>
+  <section class="card language">
+    <LanguagePicker disabled={busy} />
+  </section>
 {:else}
   <button class="link back" onclick={() => (kind = null)}>← {t.back}</button>
   {#if kind === 'local'}
@@ -111,6 +115,9 @@
   }
   .choice strong {
     font-size: 1.05rem;
+  }
+  .language {
+    margin-top: 12px;
   }
   .choice span {
     color: var(--muted);

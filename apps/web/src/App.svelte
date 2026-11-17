@@ -14,7 +14,7 @@
   import ShareCard from './components/ShareCard.svelte';
   import StatsPage from './components/StatsPage.svelte';
   import { APP_NAME } from './lib/brand.ts';
-  import { locale, t } from './lib/i18n.ts';
+  import { lang, locale, onLanguageChange, t } from './lib/i18n.ts';
   import { isRemote, ProxyMissingError } from './lib/sources.ts';
   import { workspace } from './lib/workspace.svelte.ts';
 
@@ -72,6 +72,10 @@
     secretRequest?.resolve(value);
     secretRequest = null;
   }
+
+  // Switching the language re-renders everything below (strings and formatters are read on render).
+  let uiLang = $state(lang);
+  onMount(() => onLanguageChange((next) => (uiLang = next)));
 
   onMount(() => {
     window.addEventListener('hashchange', () => (route = location.hash || '#/'));
@@ -234,6 +238,7 @@
   {/if}
 {/snippet}
 
+{#key uiLang}
 <div class="topbar">
   <header>
     <h1>{APP_NAME}</h1>
@@ -327,6 +332,7 @@
     </form>
   </div>
 {/if}
+{/key}
 
 <style>
   /* List on the left with its own scrolling, the dive on the right. */

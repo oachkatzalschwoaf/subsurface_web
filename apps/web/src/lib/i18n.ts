@@ -319,6 +319,14 @@ const en = {
   showTime: 'Time',
   statTempMin: 'Water min.',
   statTempAvg: 'Water avg.',
+  // language and file names
+  language: 'Language',
+  languageAuto: (name: string) => `System language (${name})`,
+  languageHint: 'Stored on this device only.',
+  fileLogbook: 'logbook',
+  fileNewDives: 'new-dives',
+  fileWithPictures: 'with-pictures',
+  fileBackup: 'logbook-backup',
 };
 
 type Strings = typeof en;
@@ -646,7 +654,83 @@ const de: Strings = {
   showTime: 'Uhrzeit',
   statTempMin: 'Wasser min.',
   statTempAvg: 'Wasser Ø',
+  // language and file names
+  language: 'Sprache',
+  languageAuto: (name) => `Systemsprache (${name})`,
+  languageHint: 'Wird nur auf diesem Gerät gespeichert.',
+  fileLogbook: 'logbuch',
+  fileNewDives: 'neue-tauchgaenge',
+  fileWithPictures: 'mit-bildern',
+  fileBackup: 'logbuch-backup',
 };
 
-export const t: Strings = navigator.language.toLowerCase().startsWith('de') ? de : en;
-export const locale = navigator.language;
+// ---- Language choice ---------------------------------------------------------------------------
+// Default: the system (browser) language if the UI has it, otherwise English. The choice made under
+// "Data" is stored on this device. `t` and `locale` are live bindings: after setLanguage() every
+// importer sees the new values; App.svelte re-renders its whole tree (see onLanguageChange).
+
+export type Lang = 'en' | 'de';
+export type LangChoice = Lang | 'auto';
+
+const STRINGS: Record<Lang, Strings> = { en, de };
+/** Language names in their own language, for the picker. */
+export const LANGUAGE_NAMES: Record<Lang, string> = { en: 'English', de: 'Deutsch' };
+const LANG_KEY = 'topside.lang';
+/** Formatting locale when the browser lists no variant of an explicitly chosen language. */
+const FALLBACK_LOCALE: Record<Lang, string> = { en: 'en-GB', de: 'de-DE' };
+
+const systemLanguages = (): readonly string[] => (navigator.languages?.length ? navigator.languages : [navigator.language]);
+const isLang = (value: unknown): value is Lang => value === 'en' || value === 'de';
+
+/** The UI language the system asks for: the first browser language the UI has, otherwise English. */
+export function systemLang(): Lang {
+  for (const tag of systemLanguages()) {
+    const base = tag.toLowerCase().split('-')[0];
+    if (isLang(base)) return base;
+  }
+  return 'en';
+}
+
+export function languageChoice(): LangChoice {
+  try {
+    const stored = localStorage.getItem(LANG_KEY);
+    return isLang(stored) ? stored : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+function resolve(choice: LangChoice): { lang: Lang; locale: string } {
+  const lang = choice === 'auto' ? systemLang() : choice;
+  // Keep the regional formats of the system (en-US, de-AT, …) when it lists the chosen language.
+  const match = systemLanguages().find((tag) => tag.toLowerCase().split('-')[0] === lang);
+  return { lang, locale: match ?? FALLBACK_LOCALE[lang] };
+}
+
+const initial = resolve(languageChoice());
+export let lang: Lang = initial.lang;
+export let t: Strings = STRINGS[lang];
+export let locale: string = initial.locale;
+document.documentElement.lang = lang;
+
+const listeners = new Set<(lang: Lang) => void>();
+export function onLanguageChange(listener: (lang: Lang) => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Stores the choice on this device and switches the UI without reloading the page. */
+export function setLanguage(choice: LangChoice): void {
+  try {
+    if (choice === 'auto') localStorage.removeItem(LANG_KEY);
+    else localStorage.setItem(LANG_KEY, choice);
+  } catch {
+    // storage blocked: the choice holds until the page is closed
+  }
+  const next = resolve(choice);
+  lang = next.lang;
+  t = STRINGS[lang];
+  locale = next.locale;
+  document.documentElement.lang = lang;
+  for (const listener of listeners) listener(lang);
+}

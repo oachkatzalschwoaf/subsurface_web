@@ -8,6 +8,7 @@
   import { isRemote, sourceLabel, type RemoteSource } from '../lib/sources.ts';
   import { workspace } from '../lib/workspace.svelte.ts';
   import InstallHint from './InstallHint.svelte';
+  import LanguagePicker from './LanguagePicker.svelte';
   import RemoteForm from './RemoteForm.svelte';
 
   let { busy, run }: { busy: boolean; run: (fn: () => Promise<string | void>) => Promise<void> } = $props();
@@ -21,7 +22,7 @@
 
   function exportXml(onlyPending: boolean) {
     const xml = workspace.exportXml(onlyPending);
-    downloadFile(xml, `${onlyPending ? 'neue-tauchgaenge' : 'logbuch'}-${today()}.ssrf`, 'application/xml');
+    downloadFile(xml, `${onlyPending ? t.fileNewDives : t.fileLogbook}-${today()}.ssrf`, 'application/xml');
   }
 
   /** Pictures referenced by the logbook that are kept on this device */
@@ -37,16 +38,16 @@
         const blob = await workspace.mediaBlob(item.filename);
         if (blob) pictures.push({ filename: item.filename, data: new Uint8Array(await blob.arrayBuffer()) });
       }
-      const name = `logbuch-${today()}`;
+      const name = `${t.fileLogbook}-${today()}`;
       const zip = fullExportZip(`${name}.ssrf`, workspace.exportXml(false), pictures, t.fullExportReadme(APP_NAME));
-      downloadFile(new Blob([zip as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${name}-mit-bildern.zip`);
+      downloadFile(new Blob([zip as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${name}-${t.fileWithPictures}.zip`);
     });
   }
 
   function backup() {
     if (!workspace.tree) return;
     const zip = backupZip(workspace.tree, `${APP_NAME} backup ${new Date().toISOString()} · ${workspace.label || 'local'}`);
-    downloadFile(new Blob([zip as Uint8Array<ArrayBuffer>], { type: "application/zip" }), `logbuch-backup-${today()}.zip`);
+    downloadFile(new Blob([zip as Uint8Array<ArrayBuffer>], { type: "application/zip" }), `${t.fileBackup}-${today()}.zip`);
   }
 
   async function importFile(file: File | undefined) {
@@ -173,6 +174,10 @@
       <RemoteForm kind={targetKind} {busy} submitLabel={t.transferDives} onSubmit={transferTo} />
     {/key}
   {/if}
+</section>
+
+<section class="card">
+  <LanguagePicker disabled={busy} />
 </section>
 
 <InstallHint />
