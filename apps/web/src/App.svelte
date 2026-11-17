@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { SyncError, type Dive, type DiveDraft, type TripChoice } from '@topside/core';
+  import { SyncError, type Dive, type DiveDraft, type DiveEdit, type TripChoice } from '@topside/core';
   import { onMount } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import AddDives from './components/AddDives.svelte';
   import DataPage from './components/DataPage.svelte';
   import DiveDetail from './components/DiveDetail.svelte';
   import DiveList from './components/DiveList.svelte';
+  import EditDive from './components/EditDive.svelte';
   import InstallHint from './components/InstallHint.svelte';
   import Setup from './components/Setup.svelte';
   import ShareCard from './components/ShareCard.svelte';
@@ -29,14 +30,17 @@
     route.startsWith(prefix) ? (logbook?.dives.find((d) => String(d.when) === route.slice(prefix.length)) ?? null) : null;
   const detailDive = $derived(routeDive('#/dive/'));
   const shareDive = $derived(routeDive('#/share/'));
+  const editingDive = $derived(routeDive('#/edit/'));
   const tab = $derived(route === '#/add' ? 'add' : route === '#/data' ? 'data' : 'log');
   const remote = $derived(workspace.source !== null && isRemote(workspace.source));
+  /** Dives can be changed unless the remote logbook is one Topside must not write. */
+  const canEdit = $derived(!(remote && workspace.problems.length > 0));
 
   // Wide screens (PC, tablet, phone held sideways) show the list and one dive side by side.
   const wide = new MediaQuery('(min-width: 900px)');
   const split = $derived(wide.current && tab === 'log' && !shareDive);
   /** The dive on the right-hand side: the opened one, otherwise the newest. */
-  const shownDive = $derived(detailDive ?? (split ? (logbook?.dives.at(-1) ?? null) : null));
+  const shownDive = $derived(editingDive ?? detailDive ?? (split ? (logbook?.dives.at(-1) ?? null) : null));
   function openDive(dive: Dive) {
     const hash = `#/dive/${dive.when}`;
     // Side by side, picking another dive should not pile up history entries.
@@ -97,8 +101,30 @@
   async function sync() {
     await run(async () => {
       const r = await workspace.sync();
-      return r.added.length ? t.uploaded(r.added.length, workspace.source?.kind === 'cloud') : t.refreshed;
+      return r.added.length || r.edited ? t.synced(r.added.length, r.edited ?? 0, workspace.source?.kind === 'cloud') : t.refreshed;
     });
+  }
+
+  async function editDive(edit: DiveEdit): Promise<boolean> {
+    let ok = false;
+    await run(async () => {
+      await workspace.editDive(edit);
+      ok = true;
+      if (!remote) return t.editSaved;
+      if (!online) return t.editSavedOffline;
+      try {
+        const r = await workspace.sync();
+        return t.synced(r.added.length, r.edited ?? 0, workspace.source?.kind === 'cloud');
+      } catch (e) {
+        return `${t.editSavedOffline} ${message(e)}`;
+      }
+    });
+    // back to the dive the edit page was opened from; leaves no edit page in the history
+    if (ok) {
+      if (history.length > 1) history.back();
+      else location.replace(`#/dive/${edit.when}`);
+    }
+    return ok;
   }
 
   async function addDives(drafts: DiveDraft[], trip: TripChoice): Promise<boolean> {
@@ -110,7 +136,7 @@
       if (!online) return t.savedOffline(drafts.length);
       try {
         const synced = await workspace.sync();
-        return t.uploaded(synced.added.length, workspace.source?.kind === 'cloud') + (synced.skipped ? ` ${t.skipped(synced.skipped)}` : '');
+        return t.synced(synced.added.length, synced.edited ?? 0, workspace.source?.kind === 'cloud') + (synced.skipped ? ` ${t.skipped(synced.skipped)}` : '');
       } catch (e) {
         return `${t.savedOffline(drafts.length)} ${message(e)}`;
       }
@@ -145,9 +171,14 @@
 {/snippet}
 
 {#snippet divePane(dive: Dive)}
-  {#if logbook}
+  {#if logbook && editingDive === dive}
+    <h2>{t.editTitle}</h2>
+    {#key dive}
+      <EditDive {logbook} {dive} {busy} onSave={editDive} onCancel={() => history.back()} />
+    {/key}
+  {:else if logbook}
     {#if view?.pendingDives.has(dive)}<p class="hint">⏳ {t.notSynced}</p>{/if}
-    <DiveDetail {logbook} {dive} onShare={() => go(`#/share/${dive.when}`)} />
+    <DiveDetail {logbook} {dive} onShare={() => go(`#/share/${dive.when}`)} onEdit={canEdit ? () => go(`#/edit/${dive.when}`) : undefined} />
   {/if}
 {/snippet}
 
@@ -184,9 +215,9 @@
         {#if shownDive}{@render divePane(shownDive)}{/if}
       </div>
     </div>
-  {:else if logbook && detailDive}
+  {:else if logbook && (editingDive ?? detailDive)}
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
-    {@render divePane(detailDive)}
+    {@render divePane((editingDive ?? detailDive)!)}
   {:else if logbook && tab === 'add'}
     {#if workspace.problems.length > 0 && remote}
       <p class="error" role="alert">{t.readOnly} {workspace.problems[0]}</p>

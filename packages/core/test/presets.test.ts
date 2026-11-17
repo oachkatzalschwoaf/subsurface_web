@@ -4,6 +4,7 @@ import {
   applyPreset,
   cylinderTypes,
   flattenTree,
+  hasRecordedMix,
   importFit,
   newDraft,
   parseLogbook,
@@ -106,7 +107,7 @@ describe('equipment presets', () => {
     expect(air).toMatchObject({ suit: '5 mm', cylinderVolume: 12, cylinderO2: 32, weight: 6, weightDescription: 'Belt', buddy: 'Kim', startPressure: 210 });
 
     const recorded = await draftFor('2026-10-18T15:00:00', '11111111112_ACTIVITY.fit', 28);
-    applyPreset(recorded, preset);
+    applyPreset(recorded, preset, hasRecordedMix(recorded));
     expect(recorded.cylinderO2).toBe(28);
   });
 

@@ -1,11 +1,16 @@
 <script lang="ts">
-  import { CYLINDER_USE, type Dive, type Logbook } from '@topside/core';
+  import { CYLINDER_USE, MANUAL_DIVE_MODEL, type Dive, type Logbook } from '@topside/core';
   import { summary } from '../lib/dive-data.ts';
   import { formatDate } from '../lib/format.ts';
   import { locale, t } from '../lib/i18n.ts';
   import DiveChart from './DiveChart.svelte';
 
-  let { logbook, dive, onShare }: { logbook: Logbook; dive: Dive; onShare: () => void } = $props();
+  let {
+    logbook,
+    dive,
+    onShare,
+    onEdit,
+  }: { logbook: Logbook; dive: Dive; onShare: () => void; onEdit?: (() => void) | undefined } = $props();
 
   const info = $derived(summary(logbook, dive));
   const one = new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -28,7 +33,7 @@
       [t.guide, dive.diveGuide],
       [t.suit, dive.suit],
       ['Tags', dive.tags.join(', ')],
-      [t.computer, info.model],
+      [t.computer, info.model === MANUAL_DIVE_MODEL ? t.manualDive : info.model],
     ].filter(([, v]) => v) as [string, string][],
   );
 </script>
@@ -38,7 +43,10 @@
     <h2>{dive.number ? `#${dive.number} ` : ''}{info.site || formatDate(dive.when)}</h2>
     <p class="hint">{formatDate(dive.when)}{info.trip ? ` · ${info.trip}` : ''}</p>
   </div>
-  <button class="secondary" onclick={onShare}>{t.share}</button>
+  <div class="actions">
+    {#if onEdit}<button class="secondary" onclick={onEdit}>{t.edit}</button>{/if}
+    <button class="secondary" onclick={onShare}>{t.share}</button>
+  </div>
 </section>
 
 <section class="tiles">
@@ -99,6 +107,12 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 12px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
   }
   h2 {
     margin: 0;

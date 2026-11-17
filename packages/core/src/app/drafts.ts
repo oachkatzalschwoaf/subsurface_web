@@ -17,9 +17,8 @@ export type TripChoice =
   | { kind: 'existing'; location: string; first: number }
   | { kind: 'new'; location: string; notes: string };
 
-export interface DiveDraft {
-  fit: FitImport;
-  site: SiteChoice;
+/** What the user can enter about a dive; the same fields for new dives, notes and later edits. */
+export interface DiveDetails {
   buddy: string;
   diveGuide: string;
   suit: string;
@@ -46,6 +45,40 @@ export interface DiveDraft {
   weightDescription: string;
 }
 
+export interface DiveDraft extends DiveDetails {
+  fit: FitImport;
+  site: SiteChoice;
+}
+
+export function emptyDetails(): DiveDetails {
+  return {
+    buddy: '',
+    diveGuide: '',
+    suit: '',
+    notes: '',
+    tags: '',
+    rating: 0,
+    visibility: 0,
+    cylinderVolume: null,
+    cylinderDescription: '',
+    cylinderO2: null,
+    startPressure: null,
+    endPressure: null,
+    weight: null,
+    weightDescription: '',
+  };
+}
+
+/** Comma-separated tags as a list without blanks and repeats. */
+export const splitTags = (tags: string): string[] => [...new Set(tags.split(',').map((t) => t.trim()).filter(Boolean))];
+
+/** Oxygen percentage as Subsurface stores it (permille, air = 0); null if the value is unusable. */
+export function o2Permille(percent: number | null | undefined, helium = 0): number | null {
+  if (percent === null || percent === undefined || !Number.isFinite(percent) || percent < 1 || percent > 100) return null;
+  const permille = Math.round(percent * 10);
+  return permille === 210 && helium === 0 ? 0 : permille;
+}
+
 export function newDraft(fit: FitImport): DiveDraft {
   const recordedO2 = fit.dive.cylinders[0]?.o2 ?? 0;
   return {
@@ -68,7 +101,7 @@ export function newDraft(fit: FitImport): DiveDraft {
   };
 }
 
-const milli = (value: number | null): number => (value === null || !Number.isFinite(value) ? 0 : Math.round(value * 1000));
+export const milli = (value: number | null): number => (value === null || !Number.isFinite(value) ? 0 : Math.round(value * 1000));
 
 export interface ApplyResult {
   added: Dive[];
@@ -102,7 +135,7 @@ export function applyDrafts(logbook: Logbook, drafts: readonly DiveDraft[], trip
     dive.diveGuide = draft.diveGuide.trim();
     dive.suit = draft.suit.trim();
     dive.notes = draft.notes.trim();
-    dive.tags = [...new Set(draft.tags.split(',').map((t) => t.trim()).filter(Boolean))];
+    dive.tags = splitTags(draft.tags);
     dive.rating = draft.rating;
     dive.visibility = draft.visibility;
 
@@ -130,11 +163,9 @@ export function applyDrafts(logbook: Logbook, drafts: readonly DiveDraft[], trip
       cylinder.description = draft.cylinderDescription.trim();
       cylinder.start = milli(draft.startPressure);
       cylinder.end = milli(draft.endPressure);
-      if (o2 !== null && Number.isFinite(o2) && o2 >= 1 && o2 <= 100) {
-        const permille = Math.round(o2 * 10);
-        // air is stored as "no mix", as Subsurface does
-        cylinder.o2 = permille === 210 && cylinder.he === 0 ? 0 : permille;
-      }
+      // air is stored as "no mix", as Subsurface does
+      const permille = o2Permille(o2, cylinder.he);
+      if (permille !== null) cylinder.o2 = permille;
     }
     if (draft.weight !== null && Number.isFinite(draft.weight)) {
       dive.weightsystems.push({ weight: milli(draft.weight), description: draft.weightDescription.trim() });

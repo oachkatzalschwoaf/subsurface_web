@@ -207,6 +207,37 @@ const en = {
   columns: 'Columns',
   graphSize: 'Profile height',
   dragHint: 'Drag title, details and profile to move them in the image.',
+  // dive notes and editing
+  noteTitle: 'Notes before the FIT file',
+  noteHint:
+    'No network on the boat? Note pressures, buddy and so on right after the dive. When the FIT file arrives, the note is matched by time and fills in the form.',
+  noteNew: 'New note',
+  noteWhen: 'Time of the dive (roughly)',
+  noteDepth: 'Max. depth (m)',
+  noteDuration: 'Dive time (min)',
+  noteManualHint: 'Depth and time are only needed if no FIT file will come: the note can then become a dive without a profile.',
+  noteSave: 'Save note',
+  noteDelete: 'Delete',
+  noteDeleteConfirm: 'Delete this note?',
+  noteAsDive: 'Add as dive without profile',
+  noteLinked: 'Note',
+  noteNone: '— none —',
+  withoutProfile: 'without profile',
+  manualDive: 'entered by hand',
+  edit: 'Edit',
+  save: 'Save',
+  editTitle: 'Edit dive',
+  editFirstOnly: 'This dive has several cylinders or weights; only the first one is shown and changed here.',
+  editSaved: 'Changes saved.',
+  editSavedOffline: 'Changes saved on this device; they will be uploaded with the next sync.',
+  synced: (added: number, edited: number, cloud = true) =>
+    [
+      added ? `${added} ${added === 1 ? 'dive' : 'dives'} uploaded.` : '',
+      edited ? `${edited} ${edited === 1 ? 'change' : 'changes'} uploaded.` : '',
+      cloud ? 'Open Subsurface and sync to see them.' : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
 };
 
 type Strings = typeof en;
@@ -421,6 +452,37 @@ const de: Strings = {
   columns: 'Spalten',
   graphSize: 'Profilhöhe',
   dragHint: 'Titel, Angaben und Profil lassen sich im Bild verschieben.',
+  // dive notes and editing
+  noteTitle: 'Vormerken ohne FIT-Datei',
+  noteHint:
+    'Kein Netz am Boot? Drücke, Buddy usw. gleich nach dem Tauchgang notieren. Kommt die FIT-Datei, wird die Notiz über die Uhrzeit zugeordnet und füllt das Formular aus.',
+  noteNew: 'Neue Notiz',
+  noteWhen: 'Zeit des Tauchgangs (ungefähr)',
+  noteDepth: 'Max. Tiefe (m)',
+  noteDuration: 'Tauchzeit (min)',
+  noteManualHint: 'Tiefe und Zeit braucht es nur, wenn keine FIT-Datei kommt: dann lässt sich die Notiz als Tauchgang ohne Profil übernehmen.',
+  noteSave: 'Notiz speichern',
+  noteDelete: 'Löschen',
+  noteDeleteConfirm: 'Diese Notiz löschen?',
+  noteAsDive: 'Als Tauchgang ohne Profil übernehmen',
+  noteLinked: 'Notiz',
+  noteNone: '— keine —',
+  withoutProfile: 'ohne Profil',
+  edit: 'Bearbeiten',
+  manualDive: 'von Hand eingetragen',
+  save: 'Speichern',
+  editTitle: 'Tauchgang bearbeiten',
+  editFirstOnly: 'Dieser Tauchgang hat mehrere Flaschen oder Bleisysteme; hier wird nur das jeweils erste angezeigt und geändert.',
+  editSaved: 'Änderungen gespeichert.',
+  editSavedOffline: 'Änderungen auf diesem Gerät gespeichert; sie werden beim nächsten Synchronisieren hochgeladen.',
+  synced: (added, edited, cloud = true) =>
+    [
+      added ? `${added} ${added === 1 ? 'Tauchgang' : 'Tauchgänge'} hochgeladen.` : '',
+      edited ? `${edited} ${edited === 1 ? 'Änderung' : 'Änderungen'} hochgeladen.` : '',
+      cloud ? 'In Subsurface synchronisieren, um sie zu sehen.' : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
 };
 
 export const t: Strings = navigator.language.toLowerCase().startsWith('de') ? de : en;

@@ -4,7 +4,7 @@
  * pressure are deliberately not part of a preset; they differ on every dive.
  */
 import type { Logbook } from '../subsurface/model.ts';
-import type { DiveDraft } from './drafts.ts';
+import type { DiveDetails, DiveDraft } from './drafts.ts';
 
 export interface GearPreset {
   name: string;
@@ -23,7 +23,7 @@ export interface GearPreset {
   tags: string;
 }
 
-export function presetFromDraft(name: string, draft: DiveDraft): GearPreset {
+export function presetFromDraft(name: string, draft: DiveDetails): GearPreset {
   return {
     name: name.trim(),
     suit: draft.suit.trim(),
@@ -45,14 +45,15 @@ export function hasRecordedMix(draft: DiveDraft): boolean {
 }
 
 /**
- * Fill a draft from a preset. Only values the preset has are taken over, so an empty preset field
- * never erases input. A gas mix recorded by the dive computer wins over the preset's.
+ * Fill in details from a preset. Only values the preset has are taken over, so an empty preset
+ * field never erases input. With `keepGas` the gas mix is left alone: one recorded by the dive
+ * computer wins over the preset's.
  */
-export function applyPreset(draft: DiveDraft, preset: GearPreset): void {
+export function applyPreset(draft: DiveDetails, preset: GearPreset, keepGas = false): void {
   if (preset.suit) draft.suit = preset.suit;
   if (preset.cylinderDescription) draft.cylinderDescription = preset.cylinderDescription;
   if (preset.cylinderVolume !== null) draft.cylinderVolume = preset.cylinderVolume;
-  if (preset.cylinderO2 !== null && !hasRecordedMix(draft)) draft.cylinderO2 = preset.cylinderO2;
+  if (preset.cylinderO2 !== null && !keepGas) draft.cylinderO2 = preset.cylinderO2;
   if (preset.weight !== null) draft.weight = preset.weight;
   if (preset.weightDescription) draft.weightDescription = preset.weightDescription;
   if (preset.buddy) draft.buddy = preset.buddy;

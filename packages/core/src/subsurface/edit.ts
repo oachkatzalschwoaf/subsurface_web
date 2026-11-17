@@ -65,11 +65,18 @@ const dateOf = (when: number): string => {
  * so the history reads the same whichever program wrote it.
  */
 export function commitMessageForNewDives(logbook: Logbook, dives: readonly Dive[], userAgent: string): string {
-  const sorted = [...dives].sort((a, b) => a.when - b.when);
-  const lines = sorted.map((dive) => {
+  return commitMessageForChanges(logbook, dives, [], userAgent);
+}
+
+/** Like commitMessageForNewDives(), for a commit that adds dives and changes existing ones. */
+export function commitMessageForChanges(logbook: Logbook, added: readonly Dive[], edited: readonly Dive[], userAgent: string): string {
+  const line = (verb: string) => (dive: Dive) => {
     const site = logbook.sites.find((s) => s.uuid === dive.siteUuid)?.name;
     const label = dive.number ? `#${dive.number}` : 'unnumbered';
-    return `Add dive ${label} (${dateOf(dive.when)}${site ? `, ${site}` : ''})`;
-  });
+    return `${verb} dive ${label} (${dateOf(dive.when)}${site ? `, ${site}` : ''})`;
+  };
+  const byTime = (dives: readonly Dive[]) => [...new Set(dives)].sort((a, b) => a.when - b.when);
+  // a dive that was added and then edited in the same commit is just an added one
+  const lines = [...byTime(added).map(line('Add')), ...byTime(edited.filter((d) => !added.includes(d))).map(line('Edit'))];
   return `Changes made: \n\n${lines.join('\n')}\n\nCreated by ${userAgent}\n`;
 }

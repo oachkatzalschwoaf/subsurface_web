@@ -9,7 +9,18 @@ export {
   NotADiveError,
   type FitImport,
 } from './garmin/fit-import.ts';
-export { applyDrafts, newDraft, type ApplyResult, type DiveDraft, type SiteChoice, type TripChoice } from './app/drafts.ts';
+export {
+  applyDrafts,
+  emptyDetails,
+  newDraft,
+  type ApplyResult,
+  type DiveDetails,
+  type DiveDraft,
+  type SiteChoice,
+  type TripChoice,
+} from './app/drafts.ts';
+export { applyEdit, changedDetails, detailsOf, isEmptyEdit, type DiveEdit } from './app/edits.ts';
+export { applyNote, canBecomeDive, draftFromNote, MANUAL_DIVE_MODEL, matchNotes, newNote, type DiveNote } from './app/notes.ts';
 export {
   applyPreset,
   cylinderTypes,
@@ -20,7 +31,7 @@ export {
   type CylinderType,
   type GearPreset,
 } from './app/presets.ts';
-export { appendDives, commitMessageForNewDives, createSite, createTrip, listTrips } from './subsurface/edit.ts';
+export { appendDives, commitMessageForChanges, commitMessageForNewDives, createSite, createTrip, listTrips } from './subsurface/edit.ts';
 export { createMemoryFs } from './sync/memory-fs.ts';
 export { addHeadSymref, fetchLogbook, initRemote, inspect, pushLogbook, remoteHasBranch, SyncError, withHeadSymref, type CommitInfo, type GitEnv, type Remote, type Snapshot } from './sync/sync.ts';
 export { toTm, ZERO_C_IN_MKELVIN, type Tm } from './subsurface/units.ts';

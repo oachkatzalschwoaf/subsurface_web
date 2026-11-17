@@ -8,6 +8,8 @@
  */
 import {
   applyDrafts,
+  applyEdit,
+  commitMessageForChanges,
   commitMessageForNewDives,
   fetchLogbook,
   flattenTree,
@@ -25,6 +27,8 @@ import {
   type CommitInfo,
   type Dive,
   type DiveDraft,
+  type DiveEdit,
+  type DiveNote,
   type GitTree,
   type Logbook,
   type Remote,
@@ -64,6 +68,8 @@ export interface PendingBatch {
 export interface ChangeResult {
   added: Dive[];
   skipped: number;
+  /** Number of changed dives that were uploaded */
+  edited?: number;
 }
 
 /** The remote branch does not exist yet (new, empty repository). */
@@ -71,6 +77,18 @@ export class EmptyRemoteError extends Error {}
 
 const WORKSPACE_KEY = 'workspace';
 const PENDING_KEY = 'pending';
+const EDITS_KEY = 'edits';
+const NOTES_KEY = 'notes';
+
+/** Two edits of the same dive as one: the later one wins field by field. */
+function mergeEdit(edits: DiveEdit[], edit: DiveEdit): DiveEdit[] {
+  const earlier = edits.find((e) => e.when === edit.when);
+  if (!earlier) return [...edits, edit];
+  const merged: DiveEdit = { when: edit.when, changes: { ...earlier.changes, ...edit.changes } };
+  const site = edit.site ?? earlier.site;
+  if (site) merged.site = site;
+  return edits.map((e) => (e === earlier ? merged : e));
+}
 
 export function emptyLogbook(): Logbook {
   return { settings: { ...newSettings(), units: 'METRIC' }, sites: [], filterPresets: [], trips: [], dives: [] };
@@ -90,6 +108,10 @@ class Workspace {
   commit = $state<string | null>(null);
   savedAt = $state(0);
   pending = $state.raw<PendingBatch[]>([]);
+  /** Changes to dives already in the logbook, not synced yet. */
+  edits = $state.raw<DiveEdit[]>([]);
+  /** Notes for dives whose FIT file does not exist yet. Kept on this device only. */
+  notes = $state.raw<DiveNote[]>([]);
   /** Why the current logbook must not be written. */
   problems = $state.raw<string[]>([]);
 
@@ -100,7 +122,7 @@ class Workspace {
 
   logbook = $derived(this.tree ? parseLogbook(this.tree).logbook : null);
 
-  /** The logbook with the pending dives applied, and which dives are pending. */
+  /** The logbook with pending dives and edits applied, and which dives are not synced. */
   view = $derived.by(() => {
     if (!this.tree) return null;
     const logbook = parseLogbook(this.tree).logbook;
@@ -112,10 +134,14 @@ class Workspace {
         // a chosen trip vanished; shown again after the next sync
       }
     }
+    for (const edit of this.edits) {
+      const dive = applyEdit(logbook, edit);
+      if (dive) pendingDives.add(dive);
+    }
     return { logbook, pendingDives };
   });
 
-  pendingCount = $derived(this.pending.reduce((n, b) => n + b.drafts.length, 0));
+  pendingCount = $derived(this.pending.reduce((n, b) => n + b.drafts.length, 0) + this.edits.length);
   label = $derived(this.source ? sourceLabel(this.source) : '');
 
   async load(): Promise<void> {
@@ -129,6 +155,8 @@ class Workspace {
         this.problems = inspect(this.tree).problems;
       }
       this.pending = (await dbGet<PendingBatch[]>(PENDING_KEY)) ?? [];
+      this.edits = (await dbGet<DiveEdit[]>(EDITS_KEY)) ?? [];
+      this.notes = (await dbGet<DiveNote[]>(NOTES_KEY)) ?? [];
     } finally {
       this.loaded = true;
     }
@@ -148,6 +176,27 @@ class Workspace {
   private async savePending(pending: PendingBatch[]): Promise<void> {
     await dbSet(PENDING_KEY, pending);
     this.pending = pending;
+  }
+
+  private async saveEdits(edits: DiveEdit[]): Promise<void> {
+    await dbSet(EDITS_KEY, edits);
+    this.edits = edits;
+  }
+
+  // ---- Notes ------------------------------------------------------------------------------------
+
+  async saveNote(note: DiveNote): Promise<void> {
+    const notes = [...this.notes.filter((n) => n.id !== note.id), structuredClone(note)].sort((a, b) => a.when - b.when);
+    await dbSet(NOTES_KEY, notes);
+    this.notes = notes;
+    void persistStorage();
+  }
+
+  async deleteNotes(ids: readonly string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const notes = this.notes.filter((n) => !ids.includes(n.id));
+    await dbSet(NOTES_KEY, notes);
+    this.notes = notes;
   }
 
   // ---- Secrets --------------------------------------------------------------------------------
@@ -187,14 +236,20 @@ class Workspace {
     await this.save({ kind: 'local' }, serializeLogbook(logbook), null);
   }
 
-  /** Delete everything on this device. */
-  async signOut(): Promise<void> {
+  /** Delete everything on this device; with `keepNotes` the dive notes stay (switching logbooks). */
+  async signOut(keepNotes = false): Promise<void> {
     await dbDelete(WORKSPACE_KEY);
     await dbDelete(PENDING_KEY);
+    await dbDelete(EDITS_KEY);
+    if (!keepNotes) {
+      await dbDelete(NOTES_KEY);
+      this.notes = [];
+    }
     this.source = null;
     this.tree = null;
     this.commit = null;
     this.pending = [];
+    this.edits = [];
     this.problems = [];
     this.secret = null;
     navigator.credentials?.preventSilentAccess?.();
@@ -221,6 +276,24 @@ class Workspace {
 
   async discardPending(): Promise<void> {
     await this.savePending([]);
+    await this.saveEdits([]);
+  }
+
+  // ---- Editing dives ----------------------------------------------------------------------------
+
+  /**
+   * Change a dive. In local mode the logbook changes directly; otherwise the edit is kept and
+   * uploaded by sync(), applied to the then current state of the remote logbook.
+   */
+  async editDive(edit: DiveEdit): Promise<void> {
+    if (!this.source || !this.tree) throw new Error('No logbook');
+    if (this.source.kind === 'local') {
+      const logbook = parseLogbook(this.tree).logbook;
+      if (!applyEdit(logbook, edit)) throw new Error('This dive is no longer in the logbook');
+      await this.save(this.source, serializeLogbook(logbook), null);
+      return;
+    }
+    await this.saveEdits(mergeEdit(this.edits, structuredClone(edit)));
   }
 
   // ---- Syncing ----------------------------------------------------------------------------------
@@ -242,23 +315,33 @@ class Workspace {
       }
       const logbook = inspect(snapshot.tree).logbook;
       const added: Dive[] = [];
+      const edited: Dive[] = [];
       let skipped = 0;
       for (const batch of this.pending) {
         const result = applyDrafts(logbook, batch.drafts, batch.trip);
         added.push(...result.added);
         skipped += result.duplicates.length;
       }
-      if (added.length === 0) {
+      for (const edit of this.edits) {
+        // an edit of a dive that was deleted elsewhere meanwhile is dropped
+        const dive = applyEdit(logbook, edit);
+        if (dive) edited.push(dive);
+        else skipped++;
+      }
+      if (added.length === 0 && edited.length === 0) {
         await this.save(source, snapshot.tree, snapshot.commit);
         await this.savePending([]);
-        return { added, skipped };
+        await this.saveEdits([]);
+        return { added, skipped, edited: 0 };
       }
       try {
-        const commit = await pushLogbook(env, remote, snapshot, logbook, commitInfo(remote, commitMessageForNewDives(logbook, added, agent())));
+        const message = commitMessageForChanges(logbook, added, edited, agent());
+        const commit = await pushLogbook(env, remote, snapshot, logbook, commitInfo(remote, message));
         await this.save(source, serializeLogbook(logbook), commit);
         await this.savePending([]);
+        await this.saveEdits([]);
         await rememberSecret(credentialId(source), secret, sourceLabel(source));
-        return { added, skipped };
+        return { added, skipped, edited: edited.length };
       } catch (error) {
         if (error instanceof SyncError && error.kind === 'conflict' && attempt < 2) continue;
         throw error;

@@ -71,7 +71,7 @@
     if (!target) return;
     if (workspace.pendingCount && !confirm(t.switchConfirm)) return;
     run(async () => {
-      await workspace.signOut();
+      await workspace.signOut(true);
       await workspace.connect(target.source, target.secret);
       copied = null;
       panel = '';
@@ -99,7 +99,7 @@
     <p class="hint">{workspace.pendingCount ? t.pendingCount(workspace.pendingCount) : t.allSynced}</p>
     <button class="primary" disabled={busy} onclick={() => run(async () => {
       const r = await workspace.sync();
-      return r.added.length ? t.uploaded(r.added.length, workspace.source?.kind === 'cloud') : t.refreshed;
+      return r.added.length || r.edited ? t.synced(r.added.length, r.edited ?? 0, workspace.source?.kind === 'cloud') : t.refreshed;
     })}>{t.syncNow}</button>
   {/if}
 </section>
