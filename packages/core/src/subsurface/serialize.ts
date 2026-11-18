@@ -292,7 +292,8 @@ export function serializeSamples(samples: readonly Sample[]): string {
   const old = { ...newSample(), o2sensor: [0, 0, 0, 0, 0, 0, 0] };
   const oldSensor: number[] = [];
   const oldPressure: number[] = [];
-  let b = '';
+  // collected and joined once instead of appending every line to one string
+  const lines: string[] = [];
   for (const s of samples) {
     let line = `${String(Math.floor(s.time / 60)).padStart(3)}:${pad2(s.time % 60)}`;
     line += ` ${formatMilli(s.depth)}m`;
@@ -328,9 +329,9 @@ export function serializeSamples(samples: readonly Sample[]): string {
       if (s.bearing) line += ` bearing=${s.bearing}°`;
       old.bearing = s.bearing;
     }
-    b += `${line}\n`;
+    lines.push(line);
   }
-  return b;
+  return lines.length ? `${lines.join('\n')}\n` : '';
 }
 
 function location(prefix: string, loc: Location | null): string {

@@ -253,7 +253,8 @@ function serializeSamples(samples: readonly Sample[]): string {
   const old = { ...newSample(), o2sensor: [0, 0, 0, 0, 0, 0, 0] };
   const oldSensor: number[] = [];
   const oldPressure: number[] = [];
-  let b = '';
+  // collected and joined once instead of appending every line to one string
+  const lines: string[] = [];
   for (const s of samples) {
     let line = `  <sample time='${minutes(s.time)}' depth='${formatMilli(s.depth)} m'`;
     if (s.temperature && s.temperature !== old.temperature) {
@@ -289,9 +290,9 @@ function serializeSamples(samples: readonly Sample[]): string {
       if (s.bearing) line += ` bearing='${s.bearing}'`;
       old.bearing = s.bearing;
     }
-    b += `${line} />\n`;
+    lines.push(`${line} />\n`);
   }
-  return b;
+  return lines.join('');
 }
 
 // ---------------------------------------------------------------------------------------------
