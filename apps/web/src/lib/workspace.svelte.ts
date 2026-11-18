@@ -338,11 +338,46 @@ class Workspace {
     return { added: [], skipped: 0 };
   }
 
+  // ---- Dropping changes that are not synced yet ----------------------------------------------
+
+  /** Drop new dives that are not synced yet, with their changes and their pictures on this device. */
+  async discardBatch(batch: PendingBatch): Promise<void> {
+    const whens = new Set(batch.drafts.map((d) => d.fit.dive.when));
+    await this.savePending(this.pending.filter((b) => b.id !== batch.id));
+    await this.saveEdits(this.edits.filter((e) => !whens.has(e.when)));
+    await this.dropMedia((m) => whens.has(m.diveWhen));
+  }
+
+  /** Drop a change of a dive; pictures it added stay off the dive and leave this device. */
+  async discardEdit(edit: DiveEdit): Promise<void> {
+    await this.saveEdits(this.edits.filter((e) => e !== edit));
+    const added = new Set((edit.addPictures ?? []).map((p) => p.filename));
+    await this.dropMedia((m) => added.has(m.filename));
+  }
+
+  async discardSiteEdit(edit: SiteEdit): Promise<void> {
+    await this.saveSiteEdits(this.siteEdits.filter((e) => e !== edit));
+  }
+
+  async discardTripEdit(edit: TripEdit): Promise<void> {
+    await this.saveTripEdits(this.tripEdits.filter((e) => e !== edit));
+  }
+
+  /** Drop everything that is not synced yet. */
   async discardPending(): Promise<void> {
-    await this.savePending([]);
-    await this.saveEdits([]);
+    for (const batch of this.pending) await this.discardBatch(batch);
+    for (const edit of this.edits) await this.discardEdit(edit);
     await this.saveSiteEdits([]);
     await this.saveTripEdits([]);
+  }
+
+  private async dropMedia(drop: (item: MediaItem) => boolean): Promise<void> {
+    const gone = this.media.filter(drop);
+    if (gone.length === 0) return;
+    for (const item of gone) await deleteMedia(item.filename);
+    const media = this.media.filter((m) => !drop(m));
+    await saveMediaList(media);
+    this.media = media;
   }
 
   // ---- Editing dives ----------------------------------------------------------------------------
@@ -460,8 +495,33 @@ class Workspace {
 
   // ---- Syncing ----------------------------------------------------------------------------------
 
+  /** The remote operation that runs now; the next one waits for it. */
+  private running: Promise<unknown> = Promise.resolve();
+
+  /** Remote operations run one after the other, so two syncs never work on the same changes. */
+  private queued<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.running.then(operation, operation);
+    this.running = result.catch(() => undefined);
+    return result;
+  }
+
   /** Fetch the remote state, apply pending dives, push. Retries once if the remote moved on. */
-  async sync(): Promise<ChangeResult> {
+  sync(): Promise<ChangeResult> {
+    return this.queued(() => this.syncNow());
+  }
+
+  /**
+   * Forget the changes a sync uploaded. Changes made while it ran stay for the next one (an edit
+   * of the same dive replaces the uploaded one by a merged edit, which is applied again then).
+   */
+  private async forgetSynced(synced: { pending: PendingBatch[]; edits: DiveEdit[]; siteEdits: SiteEdit[]; tripEdits: TripEdit[] }): Promise<void> {
+    await this.savePending(this.pending.filter((b) => !synced.pending.includes(b)));
+    await this.saveEdits(this.edits.filter((e) => !synced.edits.includes(e)));
+    await this.saveSiteEdits(this.siteEdits.filter((e) => !synced.siteEdits.includes(e)));
+    await this.saveTripEdits(this.tripEdits.filter((e) => !synced.tripEdits.includes(e)));
+  }
+
+  private async syncNow(): Promise<ChangeResult> {
     const source = this.source;
     if (!source || !isRemote(source)) throw new Error('Nothing to sync');
     await requireProxy();
@@ -477,16 +537,17 @@ class Workspace {
       }
       // fetched for this sync only, so it can take the changes directly
       const logbook = snapshot.logbook;
+      const synced = { pending: this.pending, edits: this.edits, siteEdits: this.siteEdits, tripEdits: this.tripEdits };
       const added: Dive[] = [];
       const edited: Dive[] = [];
       let skipped = 0;
-      for (const batch of this.pending) {
+      for (const batch of synced.pending) {
         const result = applyDrafts(logbook, batch.drafts, batch.trip);
         added.push(...result.added);
         skipped += result.duplicates.length;
       }
       const deleted: Dive[] = [];
-      for (const edit of this.edits) {
+      for (const edit of synced.edits) {
         // an edit of a dive that was deleted elsewhere meanwhile is dropped
         const dive = applyEdit(logbook, edit);
         if (!dive) skipped++;
@@ -494,32 +555,26 @@ class Workspace {
         else edited.push(dive);
       }
       const sites: DiveSite[] = [];
-      for (const edit of this.siteEdits) {
+      for (const edit of synced.siteEdits) {
         const site = applySiteEdit(logbook, edit);
         if (site) sites.push(site);
       }
       const trips: Trip[] = [];
-      for (const edit of this.tripEdits) {
+      for (const edit of synced.tripEdits) {
         const trip = applyTripEdit(logbook, edit);
         if (trip) trips.push(trip);
       }
       const changes = edited.length + deleted.length + sites.length + new Set(trips).size;
       if (added.length === 0 && changes === 0) {
         await this.save(source, snapshot.tree, snapshot.commit, []);
-        await this.savePending([]);
-        await this.saveEdits([]);
-        await this.saveSiteEdits([]);
-        await this.saveTripEdits([]);
+        await this.forgetSynced(synced);
         return { added, skipped, edited: 0 };
       }
       try {
         const message = commitMessageForChanges(logbook, added, edited, agent(), { sites, trips, deleted });
         const commit = await pushLogbook(env, remote, snapshot, logbook, commitInfo(remote, message));
         await this.save(source, serializeLogbook(logbook), commit, []);
-        await this.savePending([]);
-        await this.saveEdits([]);
-        await this.saveSiteEdits([]);
-        await this.saveTripEdits([]);
+        await this.forgetSynced(synced);
         await rememberSecret(credentialId(source), secret, sourceLabel(source));
         return { added, skipped, edited: changes };
       } catch (error) {
@@ -551,7 +606,7 @@ class Workspace {
       await this.save(source, serializeLogbook(logbook), null, []);
       return { added, skipped: skipped.length };
     }
-    return this.mergeIntoRemote(source, await this.secretFor(source), incoming, true);
+    return this.queued(async () => this.mergeIntoRemote(source, await this.secretFor(source), incoming, true));
   }
 
   /** Copy the dives of this logbook that the target is missing into another remote. */
@@ -559,7 +614,7 @@ class Workspace {
     const view = this.view;
     if (!view) throw new Error('No logbook');
     await requireProxy();
-    return this.mergeIntoRemote(target, secret, view.logbook, false);
+    return this.queued(() => this.mergeIntoRemote(target, secret, view.logbook, false));
   }
 
   private async mergeIntoRemote(target: RemoteSource, secret: string, incoming: Logbook, isCurrent: boolean): Promise<ChangeResult> {
@@ -608,13 +663,15 @@ class Workspace {
       await this.save(source, tree, null, []);
       return;
     }
-    await requireProxy();
-    const secret = await this.secretFor(source);
-    const remote = remoteFor(source, secret);
-    const env = freshEnv();
-    const snapshot = await fetchLogbook(env, remote);
-    const commit = await pushLogbook(env, remote, snapshot, check.logbook, commitInfo(remote, `Restore backup\n\nCreated by ${agent()}\n`));
-    await this.save(source, serializeLogbook(check.logbook), commit, []);
+    await this.queued(async () => {
+      await requireProxy();
+      const secret = await this.secretFor(source);
+      const remote = remoteFor(source, secret);
+      const env = freshEnv();
+      const snapshot = await fetchLogbook(env, remote);
+      const commit = await pushLogbook(env, remote, snapshot, check.logbook, commitInfo(remote, `Restore backup\n\nCreated by ${agent()}\n`));
+      await this.save(source, serializeLogbook(check.logbook), commit, []);
+    });
   }
 }
 

@@ -19,7 +19,9 @@
   import { isRemote, ProxyMissingError } from './lib/sources.ts';
   import { workspace } from './lib/workspace.svelte.ts';
 
-  let busy = $state(false);
+  /** Operations in progress; several can overlap (adding pictures while a sync runs). */
+  let running = $state(0);
+  const busy = $derived(running > 0);
   let error = $state('');
   let success = $state('');
   let online = $state(navigator.onLine);
@@ -119,7 +121,7 @@
   }
 
   async function run(fn: () => Promise<string | void>) {
-    busy = true;
+    running++;
     error = '';
     success = '';
     try {
@@ -127,7 +129,7 @@
     } catch (e) {
       error = message(e);
     } finally {
-      busy = false;
+      running--;
     }
   }
 

@@ -90,8 +90,13 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
 - `lib/workspace.svelte.ts` is the app state, all in IndexedDB (`lib/db.ts`): offline copy of the
   logbook, pending draft batches, pending dive/site/trip edits, dive notes and picture metadata
   (`lib/media.ts`). Sync = fetch fresh → apply batches → dive edits → site edits → trip edits →
-  one push (retry once on conflict); local mode applies changes directly. `view` = logbook with
-  everything pending applied. Deleting a not yet synced dive only drops its draft.
+  one push (retry once on conflict); local mode applies changes directly. Remote operations run
+  one after another (`queued`), and a sync forgets only the changes it uploaded. A draft whose
+  trip or site vanished meanwhile falls back to one of the same name (`applyDrafts`) instead of
+  blocking. `logbook` is parsed once per stored state and never changed; `view` and local
+  changes work on `editableCopy()` (shares the samples). The round-trip check is stored with the
+  logbook. Pending changes can be discarded one by one on the Data page. Deleting a not yet
+  synced dive only drops its draft.
 - `lib/sources.ts` — cloud / own git / local sources, `remoteFor()` builds the remote incl. the
   proxy URL, password-manager helpers. Secrets stay in memory; nothing writes them to storage.
 - `components/` — `DiveChart` draws depth/temperature/heart rate as separate panels on one time

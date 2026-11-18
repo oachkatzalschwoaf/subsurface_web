@@ -3,6 +3,7 @@
   import { parseLogbook, parseXml } from '@topside/core';
   import { APP_NAME } from '../lib/brand.ts';
   import { backupZip, downloadFile, fullExportZip, readBackupZip, today } from '../lib/files.ts';
+  import { formatDate } from '../lib/format.ts';
   import { clearGear } from '../lib/gear.ts';
   import { locale, t } from '../lib/i18n.ts';
   import { isRemote, sourceLabel, type RemoteSource } from '../lib/sources.ts';
@@ -19,6 +20,43 @@
 
   const when = $derived(workspace.savedAt ? new Date(workspace.savedAt).toLocaleString(locale) : '');
   const remote = $derived(workspace.source && isRemote(workspace.source));
+
+  /** What is not synced yet, one entry per change, each can be dropped. */
+  const pendingItems = $derived.by(() => {
+    const siteName = (uuid: number) => workspace.view?.logbook.sites.find((s) => s.uuid === uuid)?.name || '—';
+    return [
+      ...workspace.pending.map((batch) => ({
+        key: batch.id,
+        label: `${t.pendingDives(batch.drafts.length)} · ${formatDate(Math.min(...batch.drafts.map((d) => d.fit.dive.when)))}`,
+        drop: () => workspace.discardBatch(batch),
+      })),
+      ...workspace.edits.map((edit) => ({
+        key: `dive-${edit.when}`,
+        label: `${edit.delete ? t.pendingDelete : t.pendingEdit} · ${formatDate(edit.when)}`,
+        drop: () => workspace.discardEdit(edit),
+      })),
+      ...workspace.siteEdits.map((edit) => ({
+        key: `site-${edit.uuid}`,
+        label: `${t.site} · ${edit.name ?? siteName(edit.uuid)}`,
+        drop: () => workspace.discardSiteEdit(edit),
+      })),
+      ...workspace.tripEdits.map((edit, i) => ({
+        key: `trip-${i}`,
+        label: `${t.trip} · ${edit.newLocation ?? edit.location}`,
+        drop: () => workspace.discardTripEdit(edit),
+      })),
+    ];
+  });
+
+  function discard(drop: () => Promise<void>) {
+    if (!confirm(t.discardConfirm)) return;
+    void run(drop);
+  }
+
+  function discardAll() {
+    if (!confirm(t.discardAllConfirm(workspace.pendingCount))) return;
+    void run(() => workspace.discardPending());
+  }
 
   function exportXml(onlyPending: boolean) {
     const xml = workspace.exportXml(onlyPending);
@@ -119,6 +157,19 @@
   {#if when}<p class="hint">{t.savedAt(when)}</p>{/if}
   {#if remote}
     <p class="hint">{workspace.pendingCount ? t.pendingCount(workspace.pendingCount) : t.allSynced}</p>
+    {#if pendingItems.length > 0}
+      <ul class="pending">
+        {#each pendingItems as item (item.key)}
+          <li>
+            <span>{item.label}</span>
+            <button class="link" disabled={busy} onclick={() => discard(item.drop)}>{t.discard}</button>
+          </li>
+        {/each}
+      </ul>
+      {#if pendingItems.length > 1}
+        <button class="link discard-all" disabled={busy} onclick={discardAll}>{t.discardAll}</button>
+      {/if}
+    {/if}
     <button class="primary" disabled={busy} onclick={() => run(async () => {
       const r = await workspace.sync();
       return r.added.length || r.edited ? t.synced(r.added.length, r.edited ?? 0, workspace.source?.kind === 'cloud') : t.refreshed;
@@ -228,5 +279,21 @@
   .danger {
     color: var(--error);
     border-color: var(--error);
+  }
+  .pending {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .pending li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border-top: 1px solid var(--line);
+  }
+  .discard-all {
+    align-self: flex-start;
   }
 </style>

@@ -79,8 +79,38 @@ describe('applyDrafts', () => {
     expect(logbook.dives).toHaveLength(3);
   });
 
-  it('fails clearly when the chosen trip is gone', async () => {
-    const draft = await draftFor('2026-08-01T09:00:00', '11111111115_ACTIVITY.fit');
-    expect(() => applyDrafts(load(), [draft], { kind: 'existing', location: 'Nowhere', first: 1 })).toThrow('no longer in the logbook');
+  it('finds the trip again when another dive became its first one', async () => {
+    const logbook = load();
+    const [existing] = listTrips(logbook);
+    const draft = await draftFor('2026-05-02T09:00:00', '11111111115_ACTIVITY.fit');
+    // the choice names the trip by a first dive it no longer has
+    const { added } = applyDrafts(logbook, [draft], { kind: 'existing', location: existing!.trip.location, first: existing!.first - 3600 });
+    expect(added[0]!.trip).toBe(existing!.trip);
+    expect(logbook.trips).toHaveLength(1);
+  });
+
+  it('starts a trip of the same name when the chosen one is gone', async () => {
+    const logbook = load();
+    const draft = await draftFor('2026-10-01T09:00:00', '11111111116_ACTIVITY.fit');
+    const { added } = applyDrafts(logbook, [draft], { kind: 'existing', location: 'Gone Trip', first: 1 });
+    expect(added[0]!.trip!.location).toBe('Gone Trip');
+    expect(logbook.trips).toContain(added[0]!.trip);
+  });
+
+  it('replaces a site that is gone by one of the same name, else a new one', async () => {
+    const logbook = load();
+    const a = await draftFor('2026-10-01T09:00:00', '11111111117_ACTIVITY.fit');
+    const b = await draftFor('2026-10-01T14:00:00', '11111111118_ACTIVITY.fit');
+    const c = await draftFor('2026-10-02T09:00:00', '11111111119_ACTIVITY.fit');
+    a.site = { kind: 'existing', uuid: 0x12345678, name: 'Lake Spot' };
+    b.site = { kind: 'existing', uuid: 0x12345678, name: 'Vanished Wall' };
+    c.site = { kind: 'existing', uuid: 0x12345678 };
+    const { added } = applyDrafts(logbook, [a, b, c], { kind: 'none' });
+    expect(added[0]!.siteUuid).toBe(0x00c0ffee);
+    const created = logbook.sites.find((s) => s.name === 'Vanished Wall')!;
+    expect(added[1]!.siteUuid).toBe(created.uuid);
+    expect(created.location).toEqual(b.fit.entry);
+    // drafts stored by older versions have no name: the dive goes without a site
+    expect(added[2]!.siteUuid).toBeNull();
   });
 });

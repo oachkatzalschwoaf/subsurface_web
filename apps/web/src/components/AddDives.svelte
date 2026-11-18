@@ -222,7 +222,12 @@
   const siteKey = (d: DiveDraft) => (d.site.kind === 'existing' ? String(d.site.uuid) : d.site.kind);
   function setSite(d: DiveDraft, key: string) {
     d.site =
-      key === 'none' ? { kind: 'none' } : key === 'new' ? { kind: 'new', name: '', location: d.fit.entry } : { kind: 'existing', uuid: Number(key) };
+      key === 'none'
+        ? { kind: 'none' }
+        : key === 'new'
+          ? { kind: 'new', name: '', location: d.fit.entry }
+          : // the name stands in if the site is gone by the time of the upload
+            { kind: 'existing', uuid: Number(key), name: sites.find((s) => String(s.uuid) === key)?.name ?? '' };
   }
   /** Positions the watch recorded: entry and, if different, exit. */
   function watchPositions(d: DiveDraft) {
