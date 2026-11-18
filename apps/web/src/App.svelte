@@ -251,10 +251,10 @@
         </small>
       </div>
       <div class="summary-actions">
-        <a class="link" href="#/map">{t.map}</a>
-        <a class="link" href="#/stats">{t.stats}</a>
+        <a class="pill" href="#/map">{t.map}</a>
+        <a class="pill" href="#/stats">{t.stats}</a>
         {#if remote}
-          <button class="link" disabled={busy || !online} onclick={sync}>{busy ? t.signingIn : t.syncNow}</button>
+          <button class="pill" disabled={busy || !online} onclick={sync}>{busy ? t.signingIn : t.syncNow}</button>
         {/if}
       </div>
     </section>
@@ -447,7 +447,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 4px;
+    gap: 6px;
   }
   /* above the sticky upload button of the "New" page, below everything else */
   .toast-area {

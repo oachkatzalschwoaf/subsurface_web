@@ -191,7 +191,8 @@
   .main {
     flex: 1;
   }
-  .main strong {
+  .main strong,
+  .main small {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -208,6 +209,12 @@
     width: 80px;
     height: 28px;
     flex: none;
+  }
+  /* phones: room for the whole date line */
+  @media (max-width: 420px) {
+    svg {
+      width: 52px;
+    }
   }
   svg path {
     fill: var(--series-depth);

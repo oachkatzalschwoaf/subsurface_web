@@ -220,6 +220,24 @@ button,
   text-decoration: underline;
 }
 
+/* small actions next to content (map, statistics, sync in the logbook summary) */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 4px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 button:disabled {
   opacity: 0.6;
   cursor: progress;
