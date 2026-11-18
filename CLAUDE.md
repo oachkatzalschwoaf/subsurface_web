@@ -78,8 +78,8 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
 - `subsurface/gas.ts` — gas use and SAC exactly as Subsurface computes them (real-gas
   compressibility, salinity, surface pressure); the XML export writes `sac` like Subsurface.
   `app/stats.ts` — logbook statistics and the dive search.
-- `sync/sync.ts` — isomorphic-git on objects only (no checkout). `fetchLogbook` clones and reads
-  the tree; `inspect()` refuses writing (returns `problems`) unless the tree round-trips exactly;
+- `sync/sync.ts` — isomorphic-git on objects only (no checkout). `fetchLogbook` clones the branch
+  tip only (`depth: 1`; the whole history if the server cannot) and reads the tree; `inspect()` refuses writing (returns `problems`) unless the tree round-trips exactly;
   `pushLogbook` commits on top of the fetched commit and never force-pushes (a moved remote is a
   `conflict`). `withHeadSymref` works around the Subsurface cloud advertising no `HEAD`, which
   isomorphic-git otherwise rejects. `initRemote` fills an empty branch. `memory-fs.ts` is the

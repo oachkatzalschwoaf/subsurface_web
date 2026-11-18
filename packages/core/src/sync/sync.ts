@@ -132,23 +132,58 @@ export function addHeadSymref(body: Uint8Array, branch: string): Uint8Array {
 
 const auth = (remote: Remote) => () => ({ username: remote.username, password: remote.password });
 
-/** Clone the remote branch (objects only) and read the logbook at its tip. */
+/** The part of a promise-based file system removeDir() needs (Node's fs and createMemoryFs()). */
+interface RemovableFs {
+  promises: {
+    readdir(path: string): Promise<string[]>;
+    lstat(path: string): Promise<{ isDirectory(): boolean }>;
+    unlink(path: string): Promise<void>;
+    rmdir(path: string): Promise<void>;
+  };
+}
+
+/** Delete a directory with everything in it (FsClient has no recursive rm). */
+async function removeDir(fs: FsClient, path: string): Promise<void> {
+  const p = (fs as unknown as RemovableFs).promises;
+  for (const name of await p.readdir(path).catch(() => [] as string[])) {
+    const child = `${path}/${name}`;
+    if ((await p.lstat(child)).isDirectory()) await removeDir(fs, child);
+    else await p.unlink(child);
+  }
+  await p.rmdir(path).catch(() => undefined);
+}
+
+/**
+ * Clone the remote branch (objects only) and read the logbook at its tip. Only the latest commit
+ * is fetched: Subsurface commits on every save, so a long-used logbook has thousands, and each
+ * sync would download all of them. A push from it is a normal fast-forward of that commit.
+ */
 export async function fetchLogbook(env: GitEnv, remote: Remote): Promise<Snapshot> {
   const { fs, dir } = env;
   const http = withHeadSymref(env.http, remote.branch);
   try {
-    await git.clone({
-      fs,
-      http,
-      dir,
-      url: remote.url,
-      ...(remote.corsProxy ? { corsProxy: remote.corsProxy } : {}),
-      ref: remote.branch,
-      singleBranch: true,
-      noCheckout: true,
-      noTags: true,
-      onAuth: auth(remote),
-    });
+    const clone = (depth?: number) =>
+      git.clone({
+        fs,
+        http,
+        dir,
+        url: remote.url,
+        ...(remote.corsProxy ? { corsProxy: remote.corsProxy } : {}),
+        ref: remote.branch,
+        singleBranch: true,
+        noCheckout: true,
+        noTags: true,
+        ...(depth ? { depth } : {}),
+        onAuth: auth(remote),
+      });
+    try {
+      await clone(1);
+    } catch (error) {
+      // a server that cannot send a shallow clone sends the whole history
+      if ((error as { code?: string }).code !== 'RemoteCapabilityError') throw error;
+      await removeDir(fs, dir);
+      await clone();
+    }
     const commit = await git.resolveRef({ fs, dir, ref: `refs/remotes/origin/${remote.branch}` });
     const { tree: treeOid } = (await git.readCommit({ fs, dir, oid: commit })).commit;
     const tree = await readTree(env, treeOid);

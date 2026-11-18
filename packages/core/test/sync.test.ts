@@ -85,6 +85,59 @@ describe('sync with a git server', () => {
     expect(server.git('show', `${commit}:2026/07/18-Sat-10=19=29/Dive-3`)).toContain('notes "edited in memory"');
   });
 
+  it('fetches only the latest commit and pushes on top of it', async () => {
+    // a few commits of history on the server
+    for (const note of ['one', 'two']) {
+      const e = env();
+      const snapshot = await fetchLogbook(e, remote());
+      const { logbook } = inspect(snapshot.tree);
+      logbook.dives[1]!.notes = `history ${note}`;
+      await pushLogbook(e, remote(), snapshot, logbook, info);
+    }
+    expect(Number(server.git('rev-list', '--count', BRANCH).trim())).toBeGreaterThan(2);
+
+    const e = env();
+    const snapshot = await fetchLogbook(e, remote());
+    // the clone holds one commit, marked shallow
+    expect(fs.readFileSync(join(e.dir, '.git', 'shallow'), 'utf8').trim()).toBe(snapshot.commit);
+    const { logbook } = inspect(snapshot.tree);
+    logbook.dives[1]!.notes = 'pushed from a shallow clone';
+    const commit = await pushLogbook(e, remote(), snapshot, logbook, info);
+    expect(server.git('rev-parse', `${BRANCH}^`).trim()).toBe(snapshot.commit);
+    expect(server.git('rev-parse', BRANCH).trim()).toBe(commit);
+    expect(server.git('fsck', '--strict', '--no-dangling').trim()).toBe('');
+  });
+
+  it('falls back to the whole history when the server cannot clone shallow', async () => {
+    // the server's advertisement without the "shallow" capability
+    const noShallow: GitEnv['http'] = {
+      async request(request) {
+        const response = await http.request(request);
+        if (!request.url.includes('/info/refs?service=git-upload-pack') || !response.body) return response;
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of response.body) chunks.push(chunk);
+        const text = Buffer.concat(chunks).toString('latin1');
+        // pkt-lines: "# service=git-upload-pack", a flush "0000", then the first ref with the capabilities
+        let pos = 0;
+        let length = Number.parseInt(text.slice(0, 4), 16);
+        while (length === 0 || text[pos + 4] === '#') {
+          pos += length === 0 ? 4 : length;
+          length = Number.parseInt(text.slice(pos, pos + 4), 16);
+        }
+        const line = text.slice(pos + 4, pos + length).replace(' shallow', '');
+        const body = text.slice(0, pos) + (line.length + 4).toString(16).padStart(4, '0') + line + text.slice(pos + length);
+        const headers = { ...response.headers };
+        delete headers['content-length'];
+        return { ...response, headers, body: (async function* () { yield Buffer.from(body, 'latin1'); })() };
+      },
+    };
+    const e = { ...env(), http: noShallow };
+    const snapshot = await fetchLogbook(e, remote());
+    expect(snapshot.problems).toEqual([]);
+    expect(fs.existsSync(join(e.dir, '.git', 'shallow'))).toBe(false);
+    expect(snapshot.commit).toBe(server.git('rev-parse', BRANCH).trim());
+  });
+
   it('rejects a wrong password', async () => {
     await expect(fetchLogbook(env(), { ...remote(), password: 'wrong' })).rejects.toMatchObject({ kind: 'auth' });
   });
