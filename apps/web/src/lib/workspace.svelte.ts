@@ -95,6 +95,15 @@ const EDITS_KEY = 'edits';
 const SITE_EDITS_KEY = 'siteEdits';
 const TRIP_EDITS_KEY = 'tripEdits';
 const NOTES_KEY = 'notes';
+const ADD_INPUT_KEY = 'addInput';
+
+/** What is typed on the "New" page before uploading, kept so that leaving the page loses nothing. */
+export interface AddInput {
+  drafts: DiveDraft[];
+  /** draft key → id of the note that filled it */
+  noteFor: Record<string, string>;
+  trip: TripChoice;
+}
 
 /** Two edits of the same dive as one (see mergeEdits). */
 function mergeEdit(edits: DiveEdit[], edit: DiveEdit): DiveEdit[] {
@@ -246,6 +255,16 @@ class Workspace {
     void persistStorage();
   }
 
+  loadAddInput(): Promise<AddInput | undefined> {
+    return dbGet<AddInput>(ADD_INPUT_KEY);
+  }
+
+  /** Keep the input of the "New" page; null when there is nothing left to upload. */
+  async saveAddInput(input: AddInput | null): Promise<void> {
+    if (input) await dbSet(ADD_INPUT_KEY, input);
+    else await dbDelete(ADD_INPUT_KEY);
+  }
+
   async deleteNotes(ids: readonly string[]): Promise<void> {
     if (ids.length === 0) return;
     const notes = this.notes.filter((n) => !ids.includes(n.id));
@@ -302,6 +321,7 @@ class Workspace {
     await dbDelete(TRIP_EDITS_KEY);
     if (!keepDeviceData) {
       await dbDelete(NOTES_KEY);
+      await dbDelete(ADD_INPUT_KEY);
       this.notes = [];
       for (const item of this.media) await deleteMedia(item.filename);
       await saveMediaList([]);

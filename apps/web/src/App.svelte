@@ -24,6 +24,22 @@
   const busy = $derived(running > 0);
   let error = $state('');
   let success = $state('');
+  /** When the message appeared: going to another page clears it, but not the page change that
+   * comes with the result itself (saving goes back to the dive). */
+  let messageAt = 0;
+  $effect(() => {
+    if (error || success) messageAt = Date.now();
+  });
+  // a success goes away by itself; an error stays until it is closed or the page changes
+  $effect(() => {
+    if (!success) return;
+    const timer = setTimeout(() => (success = ''), 6000);
+    return () => clearTimeout(timer);
+  });
+  function dismissMessage() {
+    error = '';
+    success = '';
+  }
   let online = $state(navigator.onLine);
   let hasLegal = $state(false);
 
@@ -97,7 +113,10 @@
   });
 
   onMount(() => {
-    window.addEventListener('hashchange', () => (route = location.hash || '#/'));
+    window.addEventListener('hashchange', () => {
+      route = location.hash || '#/';
+      if (Date.now() - messageAt > 1500) dismissMessage();
+    });
     window.addEventListener('online', () => (online = true));
     window.addEventListener('offline', () => (online = false));
     void workspace.load();
@@ -328,14 +347,22 @@
     {@render listPane(null, true)}
   {/if}
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
-  {#if success}<p class="success" role="status">{success}</p>{/if}
 
   <footer>
     <p>{t.footerNote}</p>
     {#if hasLegal}<a href={`legal.html#${lang}`}>{t.legal}</a>{/if}
   </footer>
 </main>
+
+<!-- Results show in a bar at the bottom of the window, so they are seen wherever the page is scrolled to. -->
+<div class="toast-area" aria-live="polite">
+  {#if error || success}
+    <div class="toast" class:failed={error !== ''} role={error ? 'alert' : 'status'}>
+      <span>{error || success}</span>
+      <button class="close" onclick={dismissMessage} aria-label={t.close} title={t.close}>×</button>
+    </div>
+  {/if}
+</div>
 
 {#if secretRequest}
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="secret-title">
@@ -414,6 +441,50 @@
     flex-direction: column;
     align-items: flex-end;
     gap: 4px;
+  }
+  /* above the sticky upload button of the "New" page, below everything else */
+  .toast-area {
+    position: fixed;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    left: 0;
+    right: 0;
+    z-index: 15;
+    padding: 0 16px;
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    max-width: 688px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--success);
+    border-radius: 10px;
+    padding: 10px 6px 10px 14px;
+    box-shadow: 0 6px 20px rgb(0 0 0 / 25%);
+    font-weight: 600;
+  }
+  .toast.failed {
+    border-left-color: var(--error);
+  }
+  .toast span {
+    flex: 1;
+    padding-top: 2px;
+    overflow-wrap: anywhere;
+  }
+  .toast .close {
+    min-height: 32px;
+    min-width: 32px;
+    padding: 0 8px;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-size: 1.3rem;
+    line-height: 1;
   }
   .modal {
     position: fixed;

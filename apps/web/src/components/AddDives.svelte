@@ -25,6 +25,7 @@
     type Logbook,
     type TripChoice,
   } from '@topside/core';
+  import { onMount } from 'svelte';
   import { formatDate, formatDepth, formatMinutes, profilePath } from '../lib/format.ts';
   import { loadLastGear, loadPresets, saveLastGear, savePresets } from '../lib/gear.ts';
   import { t } from '../lib/i18n.ts';
@@ -49,11 +50,20 @@
 
   let drafts = $state<DiveDraft[]>([]);
   let rejected = $state<{ name: string; reason: string }[]>([]);
+  /** 'none', 'new' or "trip:<time of its first dive>" */
   let tripKey = $state('none');
   let newTripLocation = $state('');
   let fileInput = $state<HTMLInputElement>();
 
-  const trips = $derived(listTrips(logbook).slice(0, 8));
+  /** Every trip; with dives chosen, the trips closest to them come first. */
+  const trips = $derived.by(() => {
+    const all = listTrips(logbook);
+    const at = drafts[0]?.fit.dive.when;
+    if (at === undefined) return all;
+    const distance = (t: (typeof all)[number]) => (at < t.first ? t.first - at : at > t.last ? at - t.last : 0);
+    return [...all].sort((a, b) => distance(a) - distance(b));
+  });
+  const tripValue = (first: number) => `trip:${first}`;
   const sites = $derived([...logbook.sites].filter((s) => s.name).sort((a, b) => a.name.localeCompare(b.name)));
   const draftKey = (d: DiveDraft) => d.fit.fileName + d.fit.dive.when;
 
@@ -72,6 +82,7 @@
     presetNote = '';
     const preset = chosenPreset();
     if (preset) for (const d of drafts) applyPreset(d, preset, hasRecordedMix(d));
+    keep();
   }
   function savePreset(d: DiveDraft) {
     const preset = presetFromDraft(presetName, d);
@@ -118,6 +129,7 @@
       applyNote(d, note, hasRecordedMix(d));
       noteFor[draftKey(d)] = note.id;
     }
+    keep();
   }
   async function saveNote(note: DiveNote) {
     await workspace.saveNote(note);
@@ -133,10 +145,12 @@
     noteFor[draftKey(draft)] = note.id;
     drafts.push(draft);
     drafts.sort((a, b) => a.fit.dive.when - b.fit.dive.when);
+    keep();
   }
   function removeDraft(index: number) {
     const [removed] = drafts.splice(index, 1);
     if (removed) delete noteFor[draftKey(removed)];
+    keep();
   }
 
   async function addFiles(files: FileList | null) {
@@ -179,6 +193,7 @@
     drafts.push(...fresh);
     drafts.sort((a, b) => a.fit.dive.when - b.fit.dive.when);
     if (fileInput) fileInput.value = '';
+    keep();
   }
 
   function copyToAll(source: DiveDraft) {
@@ -195,19 +210,68 @@
       d.weight = source.weight;
       d.weightDescription = source.weightDescription;
     }
+    keep();
   }
 
   function tripChoice(): TripChoice {
     if (tripKey === 'new') return newTripLocation.trim() ? { kind: 'new', location: newTripLocation, notes: '' } : { kind: 'none' };
-    const existing = trips[Number(tripKey)];
+    const existing = trips.find((t) => tripValue(t.first) === tripKey);
     return existing ? { kind: 'existing', location: existing.trip.location, first: existing.first } : { kind: 'none' };
   }
+
+  // ---- Kept on this device until uploaded: leaving the page or closing the app loses nothing --
+  let restored = false;
+  let keepTimer: ReturnType<typeof setTimeout> | undefined;
+  function storeInput() {
+    keepTimer = undefined;
+    const input = drafts.length > 0 ? { drafts: $state.snapshot(drafts) as DiveDraft[], noteFor: { ...noteFor }, trip: tripChoice() } : null;
+    void workspace.saveAddInput(input);
+  }
+  /** Called after every change of the input (typing included); writes shortly after. */
+  function keep() {
+    if (!restored) return;
+    clearTimeout(keepTimer);
+    keepTimer = setTimeout(storeInput, 500);
+  }
+  function restoreTrip(trip: TripChoice) {
+    if (trip.kind === 'new') {
+      tripKey = 'new';
+      newTripLocation = trip.location;
+    } else if (trip.kind === 'existing') {
+      const all = listTrips(logbook);
+      const match = all.find((t) => t.trip.location === trip.location && t.first === trip.first) ?? all.find((t) => t.trip.location === trip.location);
+      tripKey = match ? tripValue(match.first) : 'none';
+    }
+  }
+  onMount(() => {
+    workspace
+      .loadAddInput()
+      .then((input) => {
+        if (input && drafts.length === 0) {
+          drafts = input.drafts;
+          noteFor = input.noteFor;
+          restoreTrip(input.trip);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => (restored = true));
+    // a change typed just before leaving the page is written right away
+    return () => {
+      if (keepTimer !== undefined) {
+        clearTimeout(keepTimer);
+        storeInput();
+      }
+    };
+  });
 
   async function submit() {
     const last = drafts.at(-1);
     const usedNotes = drafts.map((d) => noteFor[draftKey(d)]).filter((id): id is string => id !== undefined);
     const done = await onAdd($state.snapshot(drafts) as DiveDraft[], tripChoice());
     if (done) {
+      clearTimeout(keepTimer);
+      keepTimer = undefined;
+      await workspace.saveAddInput(null);
       if (last) saveLastGear(presetFromDraft('last', last));
       await workspace.deleteNotes(usedNotes);
       noteFor = {};
@@ -228,6 +292,7 @@
           ? { kind: 'new', name: '', location: d.fit.entry }
           : // the name stands in if the site is gone by the time of the upload
             { kind: 'existing', uuid: Number(key), name: sites.find((s) => String(s.uuid) === key)?.name ?? '' };
+    keep();
   }
   /** Positions the watch recorded: entry and, if different, exit. */
   function watchPositions(d: DiveDraft) {
@@ -242,151 +307,157 @@
   <h2>{t.noteNew}</h2>
   <NoteForm {logbook} note={editingNote} onSave={saveNote} onCancel={() => (editingNote = null)} />
 {:else}
-  <section class="card">
-    <label class="file">
-      <span class="primary button">{t.chooseFiles}</span>
-      <input bind:this={fileInput} type="file" multiple accept=".fit,.zip,.FIT,application/zip,application/octet-stream" onchange={(e) => addFiles(e.currentTarget.files)} />
-    </label>
-    <p class="hint">{t.chooseHint}</p>
-    {#each rejected as r}
-      <p class="hint">⚠ {r.name}: {r.reason}</p>
-    {/each}
-  </section>
-
-  <section class="card notes">
-    <strong>{t.noteTitle}</strong>
-    <p class="hint">{t.noteHint}</p>
-    {#each workspace.notes as n (n.id)}
-      <div class="note">
-        <div class="dive-head">
-          <div>
-            <strong>{formatDate(n.when)}</strong>
-            <span>{noteSummary(n) || '—'}</span>
-          </div>
-        </div>
-        <div class="note-actions">
-          <button class="link" onclick={() => (editingNote = n)}>{t.edit}</button>
-          {#if canBecomeDive(n) && !linkedNotes.has(n.id)}
-            <button class="link" onclick={() => addNoteAsDive(n)}>{t.noteAsDive}</button>
-          {/if}
-          <button class="link" onclick={() => removeNote(n)}>{t.noteDelete}</button>
-        </div>
-      </div>
-    {/each}
-    <button class="secondary" onclick={() => (editingNote = newNote(crypto.randomUUID(), nowWhen()))}>{t.noteNew}</button>
-  </section>
-
-  {#if drafts.length > 0}
+  <!-- every change of the input (typing, choosing) is kept on this device, see keep() -->
+  <div class="input" oninput={keep} onchange={keep}>
     <section class="card">
-      <label>
-        {t.trip}
-        <select bind:value={tripKey}>
-          <option value="none">{t.tripNone}</option>
-          <option value="new">{t.tripNew}</option>
-          {#each trips as trip, i}
-            <option value={String(i)}>{trip.trip.location || '—'} ({formatDate(trip.first).slice(0, -6)}, {trip.dives})</option>
-          {/each}
-        </select>
+      <label class="file">
+        <span class="primary button">{t.chooseFiles}</span>
+        <input bind:this={fileInput} type="file" multiple accept=".fit,.zip,.FIT,application/zip,application/octet-stream" onchange={(e) => addFiles(e.currentTarget.files)} />
       </label>
-      {#if tripKey === 'new'}
-        <label>{t.tripLocation}<input bind:value={newTripLocation} /></label>
-      {/if}
-      {#if presets.length > 0 || lastGear}
-        <label>
-          {t.gearPreset}
-          <select value={presetKey} onchange={(e) => usePreset(e.currentTarget.value)}>
-            <option value="none">{t.presetNone}</option>
-            {#if lastGear}<option value="last">{t.presetLast}</option>{/if}
-            {#each presets as p, i}<option value={String(i)}>{p.name}</option>{/each}
-          </select>
-        </label>
-        <p class="hint">{t.presetHint}</p>
-        {#if presets[Number(presetKey)]}
-          <button class="link" onclick={deletePreset}>{t.presetDelete}</button>
-        {/if}
-      {/if}
-      {#if presetNote}<p class="success" role="status">{presetNote}</p>{/if}
+      <p class="hint">{t.chooseHint}</p>
+      {#each rejected as r}
+        <p class="hint">⚠ {r.name}: {r.reason}</p>
+      {/each}
     </section>
 
-    <h2>{t.newDives}</h2>
-    {#each drafts as d, i (d.fit.fileName + d.fit.dive.when)}
-      {@const dc = d.fit.dive.computers[0]!}
-      {@const linked = noteFor[draftKey(d)]}
-      {@const choices = workspace.notes.filter((n) => n.id === linked || !linkedNotes.has(n.id))}
-      <section class="card dive">
-        <div class="dive-head">
-          <div>
-            <strong>{formatDate(d.fit.dive.when)}</strong>
-            <span>
-              {t.maxDepth}
-              {formatDepth(dc.maxDepth)} · {formatMinutes(dc.duration)}
-              {t.minutes} · {dc.model === MANUAL_DIVE_MODEL ? t.withoutProfile : dc.model}
-            </span>
+    <section class="card notes">
+      <strong>{t.noteTitle}</strong>
+      <p class="hint">{t.noteHint}</p>
+      {#each workspace.notes as n (n.id)}
+        <div class="note">
+          <div class="dive-head">
+            <div>
+              <strong>{formatDate(n.when)}</strong>
+              <span>{noteSummary(n) || '—'}</span>
+            </div>
           </div>
-          <button class="link" onclick={() => removeDraft(i)}>{t.remove}</button>
+          <div class="note-actions">
+            <button class="link" onclick={() => (editingNote = n)}>{t.edit}</button>
+            {#if canBecomeDive(n) && !linkedNotes.has(n.id)}
+              <button class="link" onclick={() => addNoteAsDive(n)}>{t.noteAsDive}</button>
+            {/if}
+            <button class="link" onclick={() => removeNote(n)}>{t.noteDelete}</button>
+          </div>
         </div>
-        {#if dc.samples.length > 1}
-          <svg viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true"><path d={profilePath(d.fit.dive, 300, 60)} /></svg>
-        {/if}
+      {/each}
+      <button class="secondary" onclick={() => (editingNote = newNote(crypto.randomUUID(), nowWhen()))}>{t.noteNew}</button>
+    </section>
 
-        {#if choices.length > 0 && dc.model !== MANUAL_DIVE_MODEL}
-          <label>
-            {t.noteLinked}
-            <select value={linked ?? 'none'} onchange={(e) => useNote(d, e.currentTarget.value)}>
-              <option value="none">{t.noteNone}</option>
-              {#each choices as n (n.id)}<option value={n.id}>{noteLabel(n)}</option>{/each}
-            </select>
-          </label>
-        {/if}
-
+    {#if drafts.length > 0}
+      <section class="card">
         <label>
-          {t.site}
-          <select value={siteKey(d)} onchange={(e) => setSite(d, e.currentTarget.value)}>
-            <option value="none">{t.siteNone}</option>
-            <option value="new">{t.siteNew}</option>
-            {#each sites as s}<option value={String(s.uuid)}>{s.name}</option>{/each}
+          {t.trip}
+          <select bind:value={tripKey}>
+            <option value="none">{t.tripNone}</option>
+            <option value="new">{t.tripNew}</option>
+            {#each trips as trip (trip.first)}
+              <option value={tripValue(trip.first)}>{trip.trip.location || '—'} ({formatDate(trip.first).slice(0, -6)}, {trip.dives})</option>
+            {/each}
           </select>
         </label>
-        {#if d.site.kind === 'new'}
-          <label>{t.siteName}<input bind:value={d.site.name} /></label>
-          <PositionField bind:location={d.site.location} suggestions={watchPositions(d)} />
+        {#if tripKey === 'new'}
+          <label>{t.tripLocation}<input bind:value={newTripLocation} /></label>
         {/if}
-
-        <DetailsFields bind:details={drafts[i]!} {logbook} recordedMix={hasRecordedMix(d)} />
-
-        {#if drafts.length > 1}
-          <button class="secondary" onclick={() => copyToAll(d)}>{t.applyToAll}</button>
+        {#if presets.length > 0 || lastGear}
+          <label>
+            {t.gearPreset}
+            <select value={presetKey} onchange={(e) => usePreset(e.currentTarget.value)}>
+              <option value="none">{t.presetNone}</option>
+              {#if lastGear}<option value="last">{t.presetLast}</option>{/if}
+              {#each presets as p, i}<option value={String(i)}>{p.name}</option>{/each}
+            </select>
+          </label>
+          <p class="hint">{t.presetHint}</p>
+          {#if presets[Number(presetKey)]}
+            <button class="link" onclick={deletePreset}>{t.presetDelete}</button>
+          {/if}
         {/if}
-        {#if savingFor === draftKey(d)}
-          <form
-            class="preset"
-            onsubmit={(e) => {
-              e.preventDefault();
-              savePreset(d);
-            }}
-          >
-            <label>{t.presetName}<input required bind:value={presetName} /></label>
-            <button class="secondary">{t.presetSave}</button>
-          </form>
-        {:else}
-          <button
-            class="link"
-            onclick={() => {
-              savingFor = draftKey(d);
-              presetName = presets[Number(presetKey)]?.name ?? '';
-            }}>{t.presetSave}</button
-          >
-        {/if}
+        {#if presetNote}<p class="success" role="status">{presetNote}</p>{/if}
       </section>
-    {/each}
 
-    <button class="primary sticky" disabled={busy} onclick={submit}>
-      {busy ? t.uploading : local ? t.addLocal(drafts.length) : t.upload(drafts.length)}
-    </button>
-  {/if}
+      <h2>{t.newDives}</h2>
+      {#each drafts as d, i (d.fit.fileName + d.fit.dive.when)}
+        {@const dc = d.fit.dive.computers[0]!}
+        {@const linked = noteFor[draftKey(d)]}
+        {@const choices = workspace.notes.filter((n) => n.id === linked || !linkedNotes.has(n.id))}
+        <section class="card dive">
+          <div class="dive-head">
+            <div>
+              <strong>{formatDate(d.fit.dive.when)}</strong>
+              <span>
+                {t.maxDepth}
+                {formatDepth(dc.maxDepth)} · {formatMinutes(dc.duration)}
+                {t.minutes} · {dc.model === MANUAL_DIVE_MODEL ? t.withoutProfile : dc.model}
+              </span>
+            </div>
+            <button class="link" onclick={() => removeDraft(i)}>{t.remove}</button>
+          </div>
+          {#if dc.samples.length > 1}
+            <svg viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true"><path d={profilePath(d.fit.dive, 300, 60)} /></svg>
+          {/if}
+
+          {#if choices.length > 0 && dc.model !== MANUAL_DIVE_MODEL}
+            <label>
+              {t.noteLinked}
+              <select value={linked ?? 'none'} onchange={(e) => useNote(d, e.currentTarget.value)}>
+                <option value="none">{t.noteNone}</option>
+                {#each choices as n (n.id)}<option value={n.id}>{noteLabel(n)}</option>{/each}
+              </select>
+            </label>
+          {/if}
+
+          <label>
+            {t.site}
+            <select value={siteKey(d)} onchange={(e) => setSite(d, e.currentTarget.value)}>
+              <option value="none">{t.siteNone}</option>
+              <option value="new">{t.siteNew}</option>
+              {#each sites as s}<option value={String(s.uuid)}>{s.name}</option>{/each}
+            </select>
+          </label>
+          {#if d.site.kind === 'new'}
+            <label>{t.siteName}<input bind:value={d.site.name} /></label>
+            <PositionField bind:location={d.site.location} suggestions={watchPositions(d)} />
+          {/if}
+
+          <DetailsFields bind:details={drafts[i]!} {logbook} recordedMix={hasRecordedMix(d)} />
+
+          {#if drafts.length > 1}
+            <button class="secondary" onclick={() => copyToAll(d)}>{t.applyToAll}</button>
+          {/if}
+          {#if savingFor === draftKey(d)}
+            <form
+              class="preset"
+              onsubmit={(e) => {
+                e.preventDefault();
+                savePreset(d);
+              }}
+            >
+              <label>{t.presetName}<input required bind:value={presetName} /></label>
+              <button class="secondary">{t.presetSave}</button>
+            </form>
+          {:else}
+            <button
+              class="link"
+              onclick={() => {
+                savingFor = draftKey(d);
+                presetName = presets[Number(presetKey)]?.name ?? '';
+              }}>{t.presetSave}</button
+            >
+          {/if}
+        </section>
+      {/each}
+
+      <button class="primary sticky" disabled={busy} onclick={submit}>
+        {busy ? t.uploading : local ? t.addLocal(drafts.length) : t.upload(drafts.length)}
+      </button>
+    {/if}
+  </div>
 {/if}
 
 <style>
+  .input {
+    display: contents;
+  }
   .preset {
     display: flex;
     flex-wrap: wrap;
