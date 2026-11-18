@@ -175,8 +175,11 @@ export interface Sample {
   cns: number;
   /** s */
   rbt: number;
-  /** mbar: sensor1–sensor6, then dc_supplied_ppo2 */
-  o2sensor: number[];
+  /**
+   * mbar: sensor1–sensor6, then dc_supplied_ppo2. Consecutive samples share one array until a
+   * value changes (see nextSample), so never change it in place; use setO2Sensor().
+   */
+  o2sensor: readonly number[];
   /** mbar, written as `po2` */
   setpoint: number;
   heartbeat: number;
@@ -268,6 +271,23 @@ export function newSample(time = 0): Sample {
     heartbeat: 0,
     bearing: -1,
   };
+}
+
+/**
+ * The sample after `previous`: carried-over values stay, temperature and tank pressures start
+ * empty. The o2sensor array is shared with `previous`; a long profile then holds one array
+ * instead of one per sample.
+ */
+export function nextSample(previous: Sample | undefined): Sample {
+  return previous ? { ...previous, temperature: 0, pressures: [] } : newSample();
+}
+
+/** Set one O2 sensor value (index 0–6) without touching the array other samples share. */
+export function setO2Sensor(sample: Sample, index: number, mbar: number): void {
+  if (sample.o2sensor[index] === mbar) return;
+  const values = [...sample.o2sensor];
+  values[index] = mbar;
+  sample.o2sensor = values;
 }
 
 export function newDiveComputer(when = 0, duration = 0): DiveComputer {

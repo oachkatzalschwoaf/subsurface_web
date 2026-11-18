@@ -6,7 +6,7 @@
  * Subsurface's own import of the same file.
  */
 import { unzipSync } from 'fflate';
-import { newCylinder, newDive, newDiveComputer, newEvent, newSample, type Dive, type DiveEvent, type Location } from '../subsurface/model.ts';
+import { newCylinder, newDive, newDiveComputer, newEvent, nextSample, type Dive, type DiveEvent, type Location } from '../subsurface/model.ts';
 import { lrint, ZERO_C_IN_MKELVIN } from '../subsurface/units.ts';
 import { garminDiveId } from './dive-id.ts';
 import { decodeFit, FIT_EPOCH_OFFSET, FIT_TIMESTAMP_FIELD, isFit, type FitMessage } from './fit-decode.ts';
@@ -151,7 +151,7 @@ export async function importFit(bytes: Uint8Array, fileName: string, activityId 
     if (ts === null || depth === null || ts < startUtc) continue;
 
     const previous = dc.samples[dc.samples.length - 1];
-    const s = previous ? { ...previous, temperature: 0, pressures: [], o2sensor: [...previous.o2sensor] } : newSample();
+    const s = nextSample(previous);
     s.time = ts - startUtc;
     s.depth = depth;
     maxDepth = Math.max(maxDepth, depth);

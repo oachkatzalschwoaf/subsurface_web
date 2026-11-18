@@ -17,8 +17,9 @@ import {
   newDive,
   newDiveComputer,
   newEvent,
-  newSample,
   newSettings,
+  nextSample,
+  setO2Sensor,
   type Dive,
   type DiveComputer,
   type DiveSite,
@@ -377,9 +378,7 @@ function parseDiveComputer(dive: Dive, content: string, diveDuration: number, wa
 /** sample_parser() */
 function parseSample(dc: DiveComputer, text: string, defaultSensor: number, warn: Warn, path: string): void {
   const previous = dc.samples[dc.samples.length - 1];
-  const sample: Sample = previous
-    ? { ...structuredClone(previous), temperature: 0, pressures: [] }
-    : newSample();
+  const sample: Sample = nextSample(previous);
   let currentSensor = previous ? (previous.pressures[0]?.sensor ?? defaultSensor) : defaultSensor;
 
   const tokens = text.trim().split(/\s+/);
@@ -427,10 +426,10 @@ function applySampleKey(sample: Sample, key: string, value: string, warn: Warn, 
     case 'po2': sample.setpoint = parseMilli(value); break;
     case 'heartbeat': sample.heartbeat = atoi(value); break;
     case 'bearing': sample.bearing = atoi(value); break;
-    case 'dc_supplied_ppo2': sample.o2sensor[6] = parseMilli(value); break;
+    case 'dc_supplied_ppo2': setO2Sensor(sample, 6, parseMilli(value)); break;
     default: {
       const sensor = /^sensor([1-6])$/.exec(key);
-      if (sensor) sample.o2sensor[Number(sensor[1]) - 1] = parseMilli(value);
+      if (sensor) setO2Sensor(sample, Number(sensor[1]) - 1, parseMilli(value));
       else warn(`${path}: unknown sample key ${key}`);
     }
   }

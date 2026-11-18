@@ -18,6 +18,8 @@ import {
   newDiveComputer,
   newEvent,
   newSample,
+  nextSample,
+  setO2Sensor,
   newSettings,
   type Dive,
   type DiveComputer,
@@ -543,7 +545,7 @@ function parseComputerElement(e: XmlElement, dive: Dive, diveDuration: number, w
       }
       case 'sample': {
         const previous = dc.samples[dc.samples.length - 1];
-        const s: Sample = previous ? { ...structuredClone(previous), temperature: 0, pressures: [] } : newSample();
+        const s: Sample = nextSample(previous);
         for (const [key, value] of ca) {
           if (key === 'time') s.time = parseDuration(value);
           else if (key === 'depth') s.depth = parseMilli(value);
@@ -559,8 +561,8 @@ function parseComputerElement(e: XmlElement, dive: Dive, diveDuration: number, w
           else if (key === 'po2') s.setpoint = parseMilli(value);
           else if (key === 'heartbeat') s.heartbeat = atoi(value);
           else if (key === 'bearing') s.bearing = atoi(value);
-          else if (key === 'dc_supplied_ppo2') s.o2sensor[6] = parseMilli(value);
-          else if (/^sensor[1-6]$/.test(key)) s.o2sensor[Number(key[6]) - 1] = parseMilli(value);
+          else if (key === 'dc_supplied_ppo2') setO2Sensor(s, 6, parseMilli(value));
+          else if (/^sensor[1-6]$/.test(key)) setO2Sensor(s, Number(key[6]) - 1, parseMilli(value));
           else warnings.push(`sample: attribute ${key} ignored`);
         }
         dc.samples.push(s);

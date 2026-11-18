@@ -20,6 +20,25 @@ describe('round trip of the synthetic repository', () => {
     expect(differences).toEqual([]);
   });
 
+  it('leaves the logbook unchanged when writing it (inspect() relies on this)', () => {
+    const { logbook } = parseLogbook(tree);
+    const before = structuredClone(logbook);
+    serializeLogbook(logbook);
+    expect(logbook).toEqual(before);
+  });
+
+  it('shares the O2 sensor values between samples until one changes', () => {
+    const { logbook } = parseLogbook(tree);
+    for (const dive of logbook.dives) {
+      for (const dc of dive.computers) {
+        dc.samples.forEach((s, i) => {
+          const previous = dc.samples[i - 1];
+          if (previous && previous.o2sensor.every((v, k) => v === s.o2sensor[k])) expect(s.o2sensor).toBe(previous.o2sensor);
+        });
+      }
+    }
+  });
+
   it('notices a changed value (guards the comparison itself)', () => {
     const { logbook } = parseLogbook(tree);
     logbook.dives[0]!.computers[0]!.samples[2]!.heartbeat = 96;

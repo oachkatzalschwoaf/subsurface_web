@@ -159,7 +159,8 @@ export function inspect(tree: GitTree): { logbook: Logbook; problems: string[] }
   if (logbook.settings.version !== 3) problems.push(`Unsupported data format version ${logbook.settings.version}`);
   if (problems.length === 0) {
     const before = flattenTree(tree);
-    const after = flattenTree(serializeLogbook(parseLogbook(tree).logbook));
+    // serializeLogbook() leaves its argument unchanged (tested), so the parsed logbook is reused
+    const after = flattenTree(serializeLogbook(logbook));
     for (const path of new Set([...before.keys(), ...after.keys()])) {
       if (before.get(path) !== after.get(path)) problems.push(`${path}: cannot be reproduced exactly`);
     }
