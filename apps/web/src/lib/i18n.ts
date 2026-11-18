@@ -78,7 +78,7 @@ const en = {
   errorUnsupported: 'Topside cannot write this logbook safely',
   errorNetwork: 'Could not reach the server',
   errorProxy:
-    'git-proxy.php is not running. The page needs a web server with PHP (your web space) or `npm run dev`; Live Server and Five Server cannot run PHP.',
+    'No answer from the sync service (git-proxy.php). Check the internet connection; a hotel Wi-Fi may want a login first. On your own installation the server needs PHP (locally: `npm run dev`).',
   minutes: 'min',
   maxDepth: 'max',
   navLog: 'Logbook',
@@ -425,7 +425,7 @@ const de: Strings = {
   errorUnsupported: 'Topside kann dieses Logbuch nicht sicher beschreiben',
   errorNetwork: 'Server nicht erreichbar',
   errorProxy:
-    'git-proxy.php läuft nicht. Die Seite braucht einen Webserver mit PHP (dein Webspace) oder `npm run dev`; Live Server und Five Server können kein PHP.',
+    'Keine Antwort vom Sync-Dienst (git-proxy.php). Internetverbindung prüfen; ein Hotel-WLAN will eventuell erst eine Anmeldung. Bei einer eigenen Installation braucht der Server PHP (lokal: `npm run dev`).',
   minutes: 'min',
   maxDepth: 'max',
   navLog: 'Logbuch',

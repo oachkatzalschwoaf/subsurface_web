@@ -43,7 +43,8 @@ export interface Snapshot {
   problems: string[];
 }
 
-export type SyncErrorKind = 'auth' | 'not-found' | 'conflict' | 'unsupported' | 'network';
+/** 'internal': not a problem of the server or the connection, e.g. a logbook Topside cannot write. */
+export type SyncErrorKind = 'auth' | 'not-found' | 'conflict' | 'unsupported' | 'network' | 'internal';
 
 export class SyncError extends Error {
   readonly kind: SyncErrorKind;
@@ -62,6 +63,11 @@ function classify(error: unknown): SyncError {
   if (status === 404) return new SyncError('not-found', `HTTP 404 ${e.data?.statusMessage ?? ''}`.trim());
   if (e.code === 'NotFoundError') return new SyncError('not-found', e.message ?? 'NotFoundError');
   if (e.code === 'PushRejectedError') return new SyncError('conflict', 'The logbook changed on the server in the meantime');
+  // isomorphic-git's errors carry a code and fetch() fails with a TypeError; anything else is
+  // Topside's own, and calling it a network problem would mislead
+  if (error instanceof Error && !(error instanceof TypeError) && e.code === undefined && e.data === undefined) {
+    return new SyncError('internal', error.message);
+  }
   return new SyncError('network', e.message ?? String(error));
 }
 

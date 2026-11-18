@@ -1,7 +1,7 @@
 /**
  * Where a logbook lives: the Subsurface cloud, an own git repository, or only this device.
  */
-import { createMemoryFs, type GitEnv, type Remote } from '@topside/core';
+import { createMemoryFs, SyncError, type GitEnv, type Remote } from '@topside/core';
 import http from 'isomorphic-git/http/web';
 
 export const DEFAULT_SERVER = 'https://ssrf-cloud-u2.subsurface-divelog.org';
@@ -71,17 +71,18 @@ export function freshEnv(): GitEnv {
 /** Thrown when git-proxy.php is not running, e.g. the page is served without PHP. */
 export class ProxyMissingError extends Error {}
 
-export async function proxyAvailable(): Promise<boolean> {
-  try {
-    const response = await fetch(new URL('git-proxy.php?ping', document.baseURI), { cache: 'no-store' });
-    return response.ok && (await response.text()).startsWith('topside-proxy');
-  } catch {
-    return false;
-  }
-}
-
+/**
+ * Throws ProxyMissingError when git-proxy.php does not answer as itself (no PHP, or a hotel
+ * Wi-Fi login page in between), and a network SyncError when there is no connection at all.
+ */
 export async function requireProxy(): Promise<void> {
-  if (!(await proxyAvailable())) throw new ProxyMissingError();
+  let response: Response;
+  try {
+    response = await fetch(new URL('git-proxy.php?ping', document.baseURI), { cache: 'no-store' });
+  } catch {
+    throw new SyncError('network', '');
+  }
+  if (!response.ok || !(await response.text()).startsWith('topside-proxy')) throw new ProxyMissingError();
 }
 
 // ---- Password manager ----------------------------------------------------------------------

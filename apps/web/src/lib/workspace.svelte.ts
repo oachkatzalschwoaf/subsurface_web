@@ -274,13 +274,41 @@ class Workspace {
 
   // ---- Secrets --------------------------------------------------------------------------------
 
+  /**
+   * Set when the server rejected the password: the password manager's copy is then skipped and
+   * the user is asked, otherwise a changed password could never be typed in (Chrome hands the
+   * stored one over without asking).
+   */
+  private askAgain = false;
+
   private async secretFor(source: RemoteSource): Promise<string> {
     if (this.secret) return this.secret;
-    const recalled = await recallSecret(credentialId(source));
-    if (recalled) return (this.secret = recalled);
+    if (!this.askAgain) {
+      const recalled = await recallSecret(credentialId(source));
+      if (recalled) return (this.secret = recalled);
+    }
     const asked = await this.askSecret?.(sourceLabel(source));
     if (!asked) throw new SyncError('auth', 'No password given');
     return asked;
+  }
+
+  /** The server accepted `secret`. */
+  private accepted(secret: string): void {
+    this.secret = secret;
+    this.askAgain = false;
+  }
+
+  /** Runs an operation on the current remote; a rejected password is forgotten. */
+  private async withCurrentSecret<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof SyncError && error.kind === 'auth') {
+        this.secret = null;
+        this.askAgain = true;
+      }
+      throw error;
+    }
   }
 
   // ---- Setting up -----------------------------------------------------------------------------
@@ -291,7 +319,7 @@ class Workspace {
     const remote = remoteFor(source, secret);
     if (!(await remoteHasBranch(freshEnv(), remote))) throw new EmptyRemoteError();
     const snapshot = await fetchLogbook(freshEnv(), remote);
-    this.secret = secret;
+    this.accepted(secret);
     await this.save(source, snapshot.tree, snapshot.commit, snapshot.problems);
     await rememberSecret(credentialId(source), secret, sourceLabel(source));
   }
@@ -527,7 +555,7 @@ class Workspace {
 
   /** Fetch the remote state, apply pending dives, push. Retries once if the remote moved on. */
   sync(): Promise<ChangeResult> {
-    return this.queued(() => this.syncNow());
+    return this.queued(() => this.withCurrentSecret(() => this.syncNow()));
   }
 
   /**
@@ -550,7 +578,7 @@ class Workspace {
     for (let attempt = 1; ; attempt++) {
       const env = freshEnv();
       const snapshot = await fetchLogbook(env, remote);
-      this.secret = secret;
+      this.accepted(secret);
       if (snapshot.problems.length > 0) {
         await this.save(source, snapshot.tree, snapshot.commit, snapshot.problems);
         throw new SyncError('unsupported', snapshot.problems[0]!);
@@ -626,7 +654,14 @@ class Workspace {
       await this.save(source, serializeLogbook(logbook), null, []);
       return { added, skipped: skipped.length };
     }
-    return this.queued(async () => this.mergeIntoRemote(source, await this.secretFor(source), incoming, true));
+    return this.queued(() =>
+      this.withCurrentSecret(async () => {
+        const secret = await this.secretFor(source);
+        const result = await this.mergeIntoRemote(source, secret, incoming, true);
+        this.accepted(secret);
+        return result;
+      }),
+    );
   }
 
   /** Copy the dives of this logbook that the target is missing into another remote. */
@@ -683,15 +718,16 @@ class Workspace {
       await this.save(source, tree, null, []);
       return;
     }
-    await this.queued(async () => {
+    await this.queued(() => this.withCurrentSecret(async () => {
       await requireProxy();
       const secret = await this.secretFor(source);
       const remote = remoteFor(source, secret);
       const env = freshEnv();
       const snapshot = await fetchLogbook(env, remote);
+      this.accepted(secret);
       const commit = await pushLogbook(env, remote, snapshot, check.logbook, commitInfo(remote, `Restore backup\n\nCreated by ${agent()}\n`));
       await this.save(source, serializeLogbook(check.logbook), commit, []);
-    });
+    }));
   }
 }
 

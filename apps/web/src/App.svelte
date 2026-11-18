@@ -134,7 +134,8 @@
       if (e.kind === 'not-found') return `${t.errorNotFound} (${e.message})`;
       if (e.kind === 'conflict') return `${t.errorConflict} (${e.message})`;
       if (e.kind === 'unsupported') return `${t.errorUnsupported}: ${e.message}`;
-      return `${t.errorNetwork}: ${e.message}`;
+      if (e.kind === 'internal') return e.message;
+      return e.message ? `${t.errorNetwork}: ${e.message}` : t.errorNetwork;
     }
     return e instanceof Error ? e.message : String(e);
   }
