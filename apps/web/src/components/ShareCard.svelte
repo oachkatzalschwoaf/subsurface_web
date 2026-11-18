@@ -10,6 +10,7 @@
   import '@fontsource/pacifico/latin-400.css';
   import '@fontsource/righteous/latin-400.css';
   import { sacRate, toTm, type Dive, type Logbook } from '@topside/core';
+  import { onDestroy } from 'svelte';
   import { APP_NAME } from '../lib/brand.ts';
   import { downsample, profile, summary } from '../lib/dive-data.ts';
   import { formatDate } from '../lib/format.ts';
@@ -110,12 +111,17 @@
     }
   }
   let s = $state<Settings>(loadSettings());
+  // written shortly after the last change, not on every step of dragging a block
   $effect(() => {
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify($state.snapshot(s)));
-    } catch {
-      // private mode: not remembered
-    }
+    const json = JSON.stringify($state.snapshot(s));
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORE_KEY, json);
+      } catch {
+        // private mode: not remembered
+      }
+    }, 400);
+    return () => clearTimeout(timer);
   });
 
   let photo = $state.raw<ImageBitmap | null>(null);
@@ -353,12 +359,30 @@
   }
 
   // ---- Photo, save, share -------------------------------------------------------------------
+  /**
+   * The photo, decoded no larger than the image needs: its shorter side at most 2560 px. A
+   * 48-megapixel phone photo would otherwise take about 190 MB for as long as it is the background.
+   */
+  const PHOTO_SHORT_SIDE = 2560;
   async function choosePhoto(files: FileList | Blob[] | null) {
     const file = files?.[0];
     if (!file) return;
-    photo = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    let bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const scale = PHOTO_SHORT_SIDE / Math.min(bitmap.width, bitmap.height);
+    if (scale < 1) {
+      const full = bitmap;
+      bitmap = await createImageBitmap(full, {
+        resizeWidth: Math.round(full.width * scale),
+        resizeHeight: Math.round(full.height * scale),
+        resizeQuality: 'high',
+      });
+      full.close();
+    }
+    photo?.close();
+    photo = bitmap;
     setBackground('photo');
   }
+  onDestroy(() => photo?.close());
 
   // The dive's own pictures on this device, offered as background
   const divePhotos = $derived(dive.pictures.filter((p) => workspace.media.some((m) => m.filename === p.filename)));
@@ -385,12 +409,15 @@
     if (blob) await choosePhoto([blob]);
   }
 
+  /** A photo background makes a JPEG (a PNG of a photo is several times larger); else PNG, which keeps transparency. */
+  const asJpeg = () => s.background === 'photo' && photo !== null;
   function fileName(): string {
     const d = new Date(dive.when * 1000).toISOString().slice(0, 10);
-    return `dive-${dive.number || d}.png`;
+    return `dive-${dive.number || d}.${asJpeg() ? 'jpg' : 'png'}`;
   }
   function toBlob(): Promise<Blob> {
-    return new Promise((resolve, reject) => canvas!.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG export failed'))), 'image/png'));
+    const type = asJpeg() ? 'image/jpeg' : 'image/png';
+    return new Promise((resolve, reject) => canvas!.toBlob((b) => (b ? resolve(b) : reject(new Error('Image export failed'))), type, 0.92));
   }
   async function save() {
     const url = URL.createObjectURL(await toBlob());
@@ -401,7 +428,8 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function share() {
-    const file = new File([await toBlob()], fileName(), { type: 'image/png' });
+    const blob = await toBlob();
+    const file = new File([blob], fileName(), { type: blob.type });
     if (navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({ files: [file], title: info.site || APP_NAME });

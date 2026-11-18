@@ -7,6 +7,7 @@ import { pwa } from './pwa.ts';
 const ALLOWED_HOST = /^(?:cloud|ssrf-cloud-[a-z0-9]+)\.subsurface-divelog\.org$/;
 const ALLOWED_PATH = /^\/git\/[^/]+\/(?:info\/refs|git-upload-pack|git-receive-pack)$/;
 const GENERIC_PATH = /^\/(?:[A-Za-z0-9._~@%+-]+\/)+(?:info\/refs|git-upload-pack|git-receive-pack)$/;
+const ALLOWED_QUERY = /^(?:|service=git-(?:upload|receive)-pack)$/;
 /** Extra git hosts for development, like git-proxy.config.php in production. */
 const EXTRA_HOSTS = (process.env.TOPSIDE_PROXY_HOSTS ?? 'github.com,gitlab.com,codeberg.org')
   .split(',')
@@ -41,8 +42,23 @@ function gitProxy(): Plugin {
             res.writeHead(421).end('Host not allowed by git-proxy.php');
             return;
           }
+          // the same rules as git-proxy.php: path, query, and GET only for info/refs
+          const method = req.method ?? 'GET';
+          if (method !== 'GET' && method !== 'POST') {
+            res.writeHead(405).end('Method not allowed');
+            return;
+          }
           const decoded = decodeURIComponent(path);
-          if (decoded.includes('/../') || !(isCloud ? ALLOWED_PATH : GENERIC_PATH).test(decoded)) {
+          const query = url.search.replace(/^\?/, '');
+          const isRefs = decoded.endsWith('/info/refs');
+          if (
+            decoded.includes('/../') ||
+            decoded.includes('/./') ||
+            !(isCloud ? ALLOWED_PATH : GENERIC_PATH).test(decoded) ||
+            !ALLOWED_QUERY.test(query) ||
+            isRefs !== (method === 'GET') ||
+            (isRefs && query === '')
+          ) {
             res.writeHead(403).end('Forbidden');
             return;
           }

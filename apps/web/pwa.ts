@@ -4,6 +4,8 @@
  * the build. git-proxy.php is never cached.
  */
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Plugin } from 'vite';
 
 const ICONS = ['icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
@@ -42,24 +44,41 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+  // The previous version stays: a page still open with it may load its files later (the map
+  // loads Leaflet on demand), also offline. Older ones go. keys() lists caches oldest first.
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('topside-') && k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => keys.filter((k) => k.startsWith('topside-') && k !== CACHE).slice(0, -1))
+      .then((old) => Promise.all(old.map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
+
+/** The cached copy of a page; the app's start page for anything else. */
+const cachedPage = (request) =>
+  caches.match(request, { ignoreSearch: true }).then((hit) => hit || caches.match(new URL('./', self.registration.scope)));
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.includes('git-proxy')) return;
   if (request.mode === 'navigate') {
-    // Network first for the pages (app, help), so updates arrive; the cached copy when offline
+    // Network first for the pages (app, help), so updates arrive. A slow connection (boat, hotel
+    // Wi-Fi) gets three seconds, then the cached copy answers; offline it answers at once.
     event.respondWith(
-      fetch(request).catch(() =>
-        caches.match(request, { ignoreSearch: true }).then((hit) => hit || caches.match(new URL('./', self.registration.scope))),
-      ),
+      (async () => {
+        const network = fetch(request);
+        network.catch(() => undefined); // answered from the cache meanwhile
+        const late = new Promise((resolve) => setTimeout(resolve, 3000, null));
+        try {
+          const response = await Promise.race([network, late]);
+          if (response) return response;
+        } catch {
+          // offline
+        }
+        return (await cachedPage(request)) || network;
+      })(),
     );
     return;
   }
@@ -70,12 +89,14 @@ self.addEventListener('fetch', (event) => {
 
 export function pwa(): Plugin {
   let name = 'Topside';
+  let publicDir = '';
   return {
     name: 'topside-pwa',
     // after Vite's own HTML plugin, so the pages (index.html, help.html) are in the bundle
     enforce: 'post',
     configResolved(config) {
       name = config.env.VITE_APP_NAME || 'Topside';
+      publicDir = config.publicDir;
     },
     configureServer(server) {
       server.middlewares.use('/manifest.webmanifest', (_req, res) => {
@@ -87,14 +108,17 @@ export function pwa(): Plugin {
       // index.html is cached as './'; other pages (help.html) by name. Their text goes into the
       // version too, so a changed help page reaches the offline cache.
       const pages = Object.keys(bundle).filter((f) => f.endsWith('.html') && f !== 'index.html');
+      // .woff only serves browsers without .woff2, which cannot run this app anyway
       const files = ['./', './manifest.webmanifest', ...ICONS.map((f) => `./${f}`), ...Object.keys(bundle).map((f) => `./${f}`)].filter(
-        (f) => !f.endsWith('.map') && (!f.endsWith('.html') || pages.includes(f.slice(2))),
+        (f) => !f.endsWith('.map') && !f.endsWith('.woff') && (!f.endsWith('.html') || pages.includes(f.slice(2))),
       );
       const hash = createHash('sha256').update(files.sort().join('\n'));
       for (const page of pages) {
         const asset = bundle[page];
         if (asset?.type === 'asset') hash.update(asset.source);
       }
+      // the icons keep their names, so their content goes into the version
+      for (const icon of ICONS) hash.update(readFileSync(join(publicDir, icon)));
       const version = hash.digest('hex').slice(0, 12);
       this.emitFile({ type: 'asset', fileName: 'sw.js', source: serviceWorker(version, files) });
     },
