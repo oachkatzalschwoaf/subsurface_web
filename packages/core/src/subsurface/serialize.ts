@@ -24,6 +24,7 @@ import {
   type Settings,
   type Trip,
 } from './model.ts';
+import { treeObjectId } from './git-object.ts';
 import { quoted } from './text.ts';
 import { addFile, subtree, type GitTree } from './tree.ts';
 import {
@@ -64,6 +65,7 @@ export function serializeLogbook(logbook: Logbook): GitTree {
 
   const dives = [...logbook.dives].sort((a, b) => a.when - b.when);
   const savedTrips = new Set<Trip>();
+  const collisions: Collision[] = [];
   for (const dive of dives) {
     const trip = dive.trip;
     if (trip && savedTrips.has(trip)) continue;
@@ -73,22 +75,47 @@ export function serializeLogbook(logbook: Logbook): GitTree {
     const monthDir = subtree(subtree(root, pad4(tm.year)), pad2(tm.month));
 
     if (!trip) {
-      saveDive(monthDir, dive, { year: tm.year, month: tm.month });
+      saveDive(monthDir, dive, { year: tm.year, month: tm.month }, collisions, 3);
       continue;
     }
     savedTrips.add(trip);
     const tripDir: GitTree = new Map();
-    addTree(monthDir, tripDirectoryName(trip, tm), tripDir);
+    addTree(monthDir, tripDirectoryName(trip, tm), tripDir, collisions, 3);
     addFile(tripDir, '00-Trip', serializeTrip(trip, tm));
     const shared = sharedDate(tm, tripDives[0]!.when, tripDives[tripDives.length - 1]!.when);
-    for (const d of tripDives) saveDive(tripDir, d, shared);
+    for (const d of tripDives) saveDive(tripDir, d, shared, collisions, 4);
   }
+  resolveCollisions(collisions);
   return root;
 }
 
-function addTree(parent: GitTree, name: string, tree: GitTree): void {
-  if (parent.has(name)) throw new Error(`Duplicate entry "${name}" (unique suffixes are not supported yet)`);
-  parent.set(name, tree);
+/** A dive or trip directory named like one created before it in the same directory. */
+interface Collision {
+  parent: GitTree;
+  name: string;
+  tree: GitTree;
+  /** Levels below the root, for resolving inner names first */
+  depth: number;
+}
+
+function addTree(parent: GitTree, name: string, tree: GitTree, collisions: Collision[], depth: number): void {
+  if (parent.has(name)) collisions.push({ parent, name, tree, depth });
+  else parent.set(name, tree);
+}
+
+/**
+ * Two trips of the same name starting on the same day, or two dives in the same second, get the
+ * same directory name. Subsurface marks dive and trip directories "unique" and its tree_insert()
+ * then appends "~" and the first 7 hex digits of the directory's git object ID to every one but
+ * the directory created last, which keeps the plain name (new_directory() puts new ones first and
+ * write_git_tree() writes in that order). Names inside go first: they are part of the IDs.
+ */
+function resolveCollisions(collisions: Collision[]): void {
+  for (const c of [...collisions].sort((a, b) => b.depth - a.depth)) {
+    const earlier = c.parent.get(c.name) as GitTree;
+    c.parent.set(c.name, c.tree);
+    c.parent.set(`${c.name}~${treeObjectId(earlier).slice(0, 7)}`, earlier);
+  }
 }
 
 /** verify_shared_date() for the first and the last dive of a trip */
@@ -124,9 +151,9 @@ export function diveDirectoryName(when: number, dir: DirDate): string {
   return `${name}${pad2(tm.day)}-${tm.weekday}-${pad2(tm.hour)}=${pad2(tm.minute)}=${pad2(tm.second)}`;
 }
 
-function saveDive(parent: GitTree, dive: Dive, dir: DirDate): void {
+function saveDive(parent: GitTree, dive: Dive, dir: DirDate, collisions: Collision[], depth: number): void {
   const diveDir: GitTree = new Map();
-  addTree(parent, diveDirectoryName(dive.when, dir), diveDir);
+  addTree(parent, diveDirectoryName(dive.when, dir), diveDir, collisions, depth);
   addFile(diveDir, dive.number ? `Dive-${dive.number}` : 'Dive', serializeDive(dive));
 
   let idx = dive.computers.length > 1 ? 1 : 0;

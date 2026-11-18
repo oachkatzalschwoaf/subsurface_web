@@ -23,8 +23,10 @@ A dive directory is named `[[yyyy-]mm-]dd-Ddd-hh=mm=ss` (`Ddd` is the English we
 month prefixes appear only when not all dives of the trip share the trip's year or month; then
 every dive in that trip gets them. A trip directory is the day of month plus up to 15 ASCII letters
 of the trip location, read up to the first `,` or `.` (`Lake Constance, Ü` gives `18-LakeConstance`),
-or `trip` if fewer than two letters remain. Name collisions get a `~<hash>` suffix (not yet
-supported by Topside).
+or `trip` if fewer than two letters remain. When two dive or trip directories in one directory get
+the same name (two trips of the same name starting on the same day), every one but the directory
+written last gets `~` and the first 7 hex digits of its own git tree ID (`tree_insert()` in
+`save-git.cpp`; Topside: `resolveCollisions()` in `serialize.ts`, IDs from `git-object.ts`).
 
 Inside a dive directory:
 
