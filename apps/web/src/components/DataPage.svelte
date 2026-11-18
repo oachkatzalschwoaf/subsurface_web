@@ -88,6 +88,13 @@
     downloadFile(new Blob([zip as Uint8Array<ArrayBuffer>], { type: "application/zip" }), `${t.fileBackup}-${today()}.zip`);
   }
 
+  /** The chosen file; the field is emptied, so choosing the same file again works too. */
+  function picked(e: Event & { currentTarget: HTMLInputElement }): File | undefined {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    return file;
+  }
+
   async function importFile(file: File | undefined) {
     if (!file) return;
     await run(async () => {
@@ -193,11 +200,11 @@
   <h3>{t.importTitle}</h3>
   <label class="file">
     <span class="secondary button">{t.importSsrf}</span>
-    <input type="file" accept=".ssrf,.xml,.zip" disabled={busy} onchange={(e) => importFile(e.currentTarget.files?.[0])} />
+    <input type="file" accept=".ssrf,.xml,.zip" disabled={busy} onchange={(e) => importFile(picked(e))} />
   </label>
   <label class="file">
     <span class="secondary button">{t.restoreBackup}</span>
-    <input type="file" accept=".zip" disabled={busy} onchange={(e) => restoreFile(e.currentTarget.files?.[0])} />
+    <input type="file" accept=".zip" disabled={busy} onchange={(e) => restoreFile(picked(e))} />
   </label>
   <p class="hint">{t.importHint}</p>
 </section>

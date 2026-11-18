@@ -51,7 +51,7 @@
       [t.buddy, dive.buddy],
       [t.guide, dive.diveGuide],
       [t.suit, dive.suit],
-      ['Tags', dive.tags.join(', ')],
+      [t.tagsLabel, dive.tags.join(', ')],
       [t.computer, info.model === MANUAL_DIVE_MODEL ? t.manualDive : info.model],
     ].filter(([, v]) => v) as [string, string][],
   );
@@ -110,7 +110,7 @@
       {#each dive.cylinders as c}
         <dt>{t.cylinder}</dt>
         <dd>
-          {[c.description, c.volume ? `${one.format(c.volume / 1000)} l` : '', gas(c.o2, c.he), c.use > 0 ? CYLINDER_USE[c.use] : '']
+          {[c.description, c.volume ? `${one.format(c.volume / 1000)} l` : '', gas(c.o2, c.he), c.use > 0 ? (t.cylinderUse[c.use] ?? CYLINDER_USE[c.use] ?? '') : '']
             .filter(Boolean)
             .join(' · ')}
           {#if c.start || c.end}<br />{c.start ? Math.round(c.start / 1000) : '?'} → {c.end ? Math.round(c.end / 1000) : '?'} bar{/if}

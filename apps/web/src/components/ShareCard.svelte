@@ -502,7 +502,15 @@
     {/if}
     <label class="file">
       <span class="secondary button">{t.choosePhoto}</span>
-      <input type="file" accept="image/*" onchange={(e) => choosePhoto(e.currentTarget.files)} />
+      <input
+        type="file"
+        accept="image/*"
+        onchange={async (e) => {
+          const input = e.currentTarget;
+          await choosePhoto(input.files);
+          input.value = '';
+        }}
+      />
     </label>
   {/if}
 </section>

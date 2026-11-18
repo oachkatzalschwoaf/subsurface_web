@@ -148,6 +148,8 @@ h2 {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
+  /* fields in a row stay level when one label takes two lines */
+  align-items: end;
 }
 
 label {
@@ -170,6 +172,11 @@ textarea {
   padding: 10px;
   min-height: 44px;
   width: 100%;
+}
+
+/* a button made of the label of a file field: sized like the other buttons, not like a label */
+.file .button {
+  font-size: 1rem;
 }
 
 .file input {

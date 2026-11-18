@@ -20,6 +20,8 @@
 
   interface Group {
     key: Trip | string;
+    /** Stays the same while the logbook is rebuilt (a pending change makes new trip objects) */
+    id: string;
     label: string;
     dives: Dive[];
   }
@@ -30,21 +32,29 @@
 
   // Newest first; a trip forms one group, dives without a trip are grouped by year.
   const groups = $derived.by(() => {
-    const out: Group[] = [];
+    const out = new Map<Trip | string, Group>();
     for (const dive of [...found].reverse()) {
       const key: Trip | string = dive.trip ?? `year-${toTm(dive.when).year}`;
-      let group = out.find((g) => g.key === key);
+      let group = out.get(key);
       if (!group) {
         const label = dive.trip ? dive.trip.location || '—' : `${t.noTrip} ${toTm(dive.when).year}`;
-        group = { key, label, dives: [] };
-        out.push(group);
+        group = { key, id: typeof key === 'string' ? key : '', label, dives: [] };
+        out.set(key, group);
       }
       group.dives.push(dive);
     }
-    return out;
+    // a trip by its first dive
+    for (const group of out.values()) if (!group.id) group.id = `trip-${group.dives.at(-1)!.when}`;
+    return [...out.values()];
   });
 
-  const siteName = (dive: Dive) => logbook.sites.find((s) => s.uuid === dive.siteUuid)?.name ?? '';
+  /** Groups opened or closed by hand; the others follow isOpen()'s default. */
+  let toggled = $state<Record<string, boolean>>({});
+  const isOpen = (group: Group, i: number) =>
+    searching || (toggled[group.id] ?? (i < 2 || (selected !== null && group.dives.includes(selected))));
+
+  const sites = $derived(new Map(logbook.sites.map((s) => [s.uuid, s.name])));
+  const siteName = (dive: Dive) => (dive.siteUuid === null ? '' : (sites.get(dive.siteUuid) ?? ''));
 </script>
 
 {#if logbook.dives.length === 0}
@@ -56,8 +66,9 @@
   </div>
 {/if}
 
-{#each groups as group, i (group.key)}
-  <details class="group" open={searching || i < 2 || (selected !== null && group.dives.includes(selected))}>
+{#each groups as group, i (group.id)}
+  {@const open = isOpen(group, i)}
+  <details class="group" {open} ontoggle={(e) => (toggled[group.id] = e.currentTarget.open)}>
     <summary>
       <span class="title">
         <span>{group.label}</span>
@@ -65,30 +76,33 @@
       </span>
       <span class="count">{group.dives.length}</span>
     </summary>
-    <ul>
-      {#each group.dives as dive (dive.when)}
-        {@const dc = dive.computers[0]}
-        <li>
-          <button class="row" aria-current={dive === selected ? 'true' : undefined} onclick={() => onOpen(dive)}>
-            <span class="nr">{dive.number || '–'}</span>
-            <span class="main">
-              <strong>{pending?.has(dive) ? "⏳ " : ""}{siteName(dive) || formatDate(dive.when)}</strong>
-              <small>{formatDate(dive.when)}</small>
-            </span>
-            {#if (dc?.samples.length ?? 0) > 1}
-              <svg viewBox="0 0 80 28" preserveAspectRatio="none" aria-hidden="true"><path d={profilePath(dive, 80, 28)} /></svg>
-            {/if}
-            <span class="nums">
-              <strong>{formatDepth(dc?.maxDepth ?? 0)}</strong>
-              <small>{formatMinutes(dc?.duration ?? 0)} {t.minutes}</small>
-            </span>
-          </button>
-        </li>
-      {/each}
-    </ul>
-    {#if onEditTrip && typeof group.key !== 'string'}
-      {@const trip = group.key}
-      <button class="link trip-edit" onclick={() => onEditTrip(trip)}>{t.tripEdit}</button>
+    <!-- rows of closed groups are not built: a long logbook has hundreds of profiles -->
+    {#if open}
+      <ul>
+        {#each group.dives as dive (dive.when)}
+          {@const dc = dive.computers[0]}
+          <li>
+            <button class="row" aria-current={dive === selected ? 'true' : undefined} onclick={() => onOpen(dive)}>
+              <span class="nr">{dive.number || '–'}</span>
+              <span class="main">
+                <strong>{pending?.has(dive) ? "⏳ " : ""}{siteName(dive) || formatDate(dive.when)}</strong>
+                <small>{formatDate(dive.when)}</small>
+              </span>
+              {#if (dc?.samples.length ?? 0) > 1}
+                <svg viewBox="0 0 80 28" preserveAspectRatio="none" aria-hidden="true"><path d={profilePath(dive, 80, 28)} /></svg>
+              {/if}
+              <span class="nums">
+                <strong>{formatDepth(dc?.maxDepth ?? 0)}</strong>
+                <small>{formatMinutes(dc?.duration ?? 0)} {t.minutes}</small>
+              </span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+      {#if onEditTrip && typeof group.key !== 'string'}
+        {@const trip = group.key}
+        <button class="link trip-edit" onclick={() => onEditTrip(trip)}>{t.tripEdit}</button>
+      {/if}
     {/if}
   </details>
 {/each}

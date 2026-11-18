@@ -61,7 +61,8 @@ import {
   type Source,
 } from './sources.ts';
 
-export const APP_VERSION = '0.2.0';
+/** From apps/web/package.json (vite.config.ts) */
+export const APP_VERSION = __APP_VERSION__;
 
 interface StoredWorkspace {
   source: Source;

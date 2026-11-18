@@ -1,4 +1,5 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { pwa } from './pwa.ts';
@@ -87,8 +88,12 @@ function gitProxy(): Plugin {
   };
 }
 
+/** The app version, from package.json; it goes into every commit message ("Created by …"). */
+const version = (JSON.parse(readFileSync(new URL('package.json', import.meta.url), 'utf8')) as { version: string }).version;
+
 export default defineConfig({
   base: './',
+  define: { __APP_VERSION__: JSON.stringify(version) },
   plugins: [svelte(), gitProxy(), pwa()],
   build: {
     target: 'es2022',

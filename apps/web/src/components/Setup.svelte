@@ -47,6 +47,13 @@
     return result.logbook;
   }
 
+  function startFromFile(e: Event & { currentTarget: HTMLInputElement }) {
+    const file = e.currentTarget.files?.[0];
+    // emptied, so the same file can be chosen again after an error
+    e.currentTarget.value = '';
+    if (file) start(readFile(file));
+  }
+
   function start(logbook: Promise<Logbook> | Logbook) {
     run(async () => {
       const book = await logbook;
@@ -65,7 +72,7 @@
     <button class="primary" disabled={busy} onclick={() => start(emptyLogbook())}>{t.startEmpty}</button>
     <label class="file">
       <span class="secondary button">{t.startFromFile}</span>
-      <input type="file" accept=".ssrf,.xml,.zip" onchange={(e) => e.currentTarget.files?.[0] && start(readFile(e.currentTarget.files[0]))} />
+      <input type="file" accept=".ssrf,.xml,.zip" onchange={startFromFile} />
     </label>
     <button class="link" onclick={() => (emptyRemote = null)}>{t.back}</button>
   </section>
@@ -92,7 +99,7 @@
       <button class="primary" disabled={busy} onclick={() => start(emptyLogbook())}>{t.startEmpty}</button>
       <label class="file">
         <span class="secondary button">{t.startFromFile}</span>
-        <input type="file" accept=".ssrf,.xml,.zip" onchange={(e) => e.currentTarget.files?.[0] && start(readFile(e.currentTarget.files[0]))} />
+        <input type="file" accept=".ssrf,.xml,.zip" onchange={startFromFile} />
       </label>
       <p class="hint">{t.srcLocalNote}</p>
     </section>
