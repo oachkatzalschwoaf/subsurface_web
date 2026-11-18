@@ -129,8 +129,14 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   `help.html#<section>` for the current route (`helpSection` in `App.svelte`). Keep the help in
   step with UI changes and quote button labels as they are in `i18n.ts`.
 - `pwa.ts` — Vite plugin (runs after Vite's HTML plugin) that generates `manifest.webmanifest`
-  (with `VITE_APP_NAME`) and `sw.js` caching the build including `help.html` (its text goes into
-  the cache version); `git-proxy.php` is never cached.
+  (with `VITE_APP_NAME`) and `sw.js` caching the build including `help.html` (its text and the
+  icons go into the cache version); `git-proxy.php` is never cached. Pages: network first, but
+  after 3 s the cached copy answers. The previous cache version is kept (an open page may still
+  load its lazy chunks), older ones are deleted.
+- UI conventions in `App.svelte`: results and errors go through `run()` into the toast bar at the
+  bottom (cleared on a route change); full-screen overlays are `<dialog>`s with `use:overlay`
+  (`lib/overlay.ts`), which adds a history entry so the phone's back button closes them. The
+  "New" page keeps its input in IndexedDB (`workspace.saveAddInput`) until it is uploaded.
 
 ### Git proxy
 
