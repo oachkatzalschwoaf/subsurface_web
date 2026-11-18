@@ -229,3 +229,36 @@ export function applyTripEdit(logbook: Logbook, edit: TripEdit): Trip | null {
   if (edit.notes !== undefined) trip.notes = edit.notes.trim();
   return trip;
 }
+
+// ---- Copies ---------------------------------------------------------------------------------
+
+/**
+ * A copy of `logbook` that drafts, edits, site and trip edits and merges can be applied to without
+ * changing `logbook`. Everything those functions change is copied (the lists, sites, trips and the
+ * small per-dive lists); the dive computers with their samples are shared, because no change
+ * touches them. This is much cheaper than parsing the logbook again or cloning it deeply.
+ */
+export function editableCopy(logbook: Logbook): Logbook {
+  const trips = new Map<Trip, Trip>(logbook.trips.map((t) => [t, { ...t }]));
+  const tripOf = (trip: Trip | null): Trip | null => {
+    if (!trip) return null;
+    let copy = trips.get(trip);
+    if (!copy) trips.set(trip, (copy = { ...trip }));
+    return copy;
+  };
+  const location = (l: Location | null): Location | null => (l ? { ...l } : null);
+  return {
+    settings: structuredClone(logbook.settings),
+    sites: logbook.sites.map((s) => ({ ...s, location: location(s.location), taxonomy: s.taxonomy.map((x) => ({ ...x })) })),
+    filterPresets: [...logbook.filterPresets],
+    trips: logbook.trips.map((t) => tripOf(t)!),
+    dives: logbook.dives.map((d) => ({
+      ...d,
+      trip: tripOf(d.trip),
+      tags: [...d.tags],
+      cylinders: d.cylinders.map((c) => ({ ...c })),
+      weightsystems: d.weightsystems.map((w) => ({ ...w })),
+      pictures: d.pictures.map((p) => ({ ...p, location: location(p.location) })),
+    })),
+  };
+}

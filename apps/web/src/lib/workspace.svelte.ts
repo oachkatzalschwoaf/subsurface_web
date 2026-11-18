@@ -12,6 +12,7 @@ import {
   applySiteEdit,
   applyTripEdit,
   commitMessageForChanges,
+  editableCopy,
   exifDate,
   mergeEdits,
   pictureFileName,
@@ -67,6 +68,8 @@ interface StoredWorkspace {
   files: [string, string][];
   commit: string | null;
   savedAt: number;
+  /** inspect() of `files` when they were saved; older versions did not store it */
+  problems?: string[];
 }
 
 export interface PendingBatch {
@@ -140,12 +143,16 @@ class Workspace {
   /** Set by the UI: asks the user for a password or token. */
   askSecret: ((label: string) => Promise<string | null>) | null = null;
 
+  /**
+   * The stored logbook, parsed once per state. Never change it: changes go to an editableCopy(),
+   * which shares the samples with it.
+   */
   logbook = $derived(this.tree ? parseLogbook(this.tree).logbook : null);
 
   /** The logbook with pending dives and edits applied, and which dives are not synced. */
   view = $derived.by(() => {
-    if (!this.tree) return null;
-    const logbook = parseLogbook(this.tree).logbook;
+    if (!this.logbook) return null;
+    const logbook = editableCopy(this.logbook);
     const pendingDives = new Set<Dive>();
     for (const batch of this.pending) {
       try {
@@ -174,7 +181,8 @@ class Workspace {
         this.tree = unflattenTree(stored.files);
         this.commit = stored.commit;
         this.savedAt = stored.savedAt;
-        this.problems = inspect(this.tree).problems;
+        // the check is stored with the logbook; parsing and writing it again here took seconds
+        this.problems = stored.problems ?? inspect(this.tree).problems;
       }
       this.pending = (await dbGet<PendingBatch[]>(PENDING_KEY)) ?? [];
       this.edits = (await dbGet<DiveEdit[]>(EDITS_KEY)) ?? [];
@@ -187,15 +195,26 @@ class Workspace {
     }
   }
 
-  private async save(source: Source, tree: GitTree, commit: string | null): Promise<void> {
-    const stored: StoredWorkspace = { source, files: [...flattenTree(tree)], commit, savedAt: Date.now() };
+  /**
+   * Keep `tree` as the logbook on this device. `problems` is what inspect() says about it; the
+   * callers know it already (a fetched snapshot was inspected, and Topside's own output of a
+   * logbook that passed the check needs none). Remote writes are checked again on every fetch.
+   */
+  private async save(source: Source, tree: GitTree, commit: string | null, problems: string[]): Promise<void> {
+    const stored: StoredWorkspace = { source, files: [...flattenTree(tree)], commit, savedAt: Date.now(), problems };
     await dbSet(WORKSPACE_KEY, stored);
     this.source = source;
     this.tree = tree;
     this.commit = commit;
     this.savedAt = stored.savedAt;
-    this.problems = inspect(tree).problems;
+    this.problems = problems;
     void persistStorage();
+  }
+
+  /** A copy of the stored logbook to change (local mode). */
+  private editable(): Logbook {
+    if (!this.logbook) throw new Error('No logbook');
+    return editableCopy(this.logbook);
   }
 
   private async savePending(pending: PendingBatch[]): Promise<void> {
@@ -254,7 +273,7 @@ class Workspace {
     if (!(await remoteHasBranch(freshEnv(), remote))) throw new EmptyRemoteError();
     const snapshot = await fetchLogbook(freshEnv(), remote);
     this.secret = secret;
-    await this.save(source, snapshot.tree, snapshot.commit);
+    await this.save(source, snapshot.tree, snapshot.commit, snapshot.problems);
     await rememberSecret(credentialId(source), secret, sourceLabel(source));
   }
 
@@ -268,7 +287,7 @@ class Workspace {
 
   /** Keep a logbook on this device only. */
   async startLocal(logbook: Logbook): Promise<void> {
-    await this.save({ kind: 'local' }, serializeLogbook(logbook), null);
+    await this.save({ kind: 'local' }, serializeLogbook(logbook), null, []);
   }
 
   /**
@@ -309,9 +328,9 @@ class Workspace {
   async addDives(drafts: DiveDraft[], trip: TripChoice): Promise<ChangeResult> {
     if (!this.source || !this.tree) throw new Error('No logbook');
     if (this.source.kind === 'local') {
-      const logbook = parseLogbook(this.tree).logbook;
+      const logbook = this.editable();
       const { added, duplicates } = applyDrafts(logbook, drafts, trip);
-      await this.save(this.source, serializeLogbook(logbook), null);
+      await this.save(this.source, serializeLogbook(logbook), null, []);
       return { added, skipped: duplicates.length };
     }
     const batch: PendingBatch = { id: crypto.randomUUID(), drafts: structuredClone(drafts), trip: structuredClone(trip), createdAt: Date.now() };
@@ -335,9 +354,9 @@ class Workspace {
   async editDive(edit: DiveEdit): Promise<void> {
     if (!this.source || !this.tree) throw new Error('No logbook');
     if (this.source.kind === 'local') {
-      const logbook = parseLogbook(this.tree).logbook;
+      const logbook = this.editable();
       if (!applyEdit(logbook, edit)) throw new Error('This dive is no longer in the logbook');
-      await this.save(this.source, serializeLogbook(logbook), null);
+      await this.save(this.source, serializeLogbook(logbook), null, []);
       return;
     }
     await this.saveEdits(mergeEdit(this.edits, structuredClone(edit)));
@@ -373,9 +392,9 @@ class Workspace {
   async editTrip(edit: TripEdit): Promise<void> {
     if (!this.source || !this.tree) throw new Error('No logbook');
     if (this.source.kind === 'local') {
-      const logbook = parseLogbook(this.tree).logbook;
+      const logbook = this.editable();
       if (!applyTripEdit(logbook, edit)) throw new Error('This trip is no longer in the logbook');
-      await this.save(this.source, serializeLogbook(logbook), null);
+      await this.save(this.source, serializeLogbook(logbook), null, []);
       return;
     }
     await this.saveTripEdits([...this.tripEdits, structuredClone(edit)]);
@@ -385,9 +404,9 @@ class Workspace {
   async editSite(edit: SiteEdit): Promise<void> {
     if (!this.source || !this.tree) throw new Error('No logbook');
     if (this.source.kind === 'local') {
-      const logbook = parseLogbook(this.tree).logbook;
+      const logbook = this.editable();
       if (!applySiteEdit(logbook, edit)) throw new Error('This dive site is no longer in the logbook');
-      await this.save(this.source, serializeLogbook(logbook), null);
+      await this.save(this.source, serializeLogbook(logbook), null, []);
       return;
     }
     await this.saveSiteEdits(mergeSiteEdit(this.siteEdits, structuredClone(edit)));
@@ -453,10 +472,11 @@ class Workspace {
       const snapshot = await fetchLogbook(env, remote);
       this.secret = secret;
       if (snapshot.problems.length > 0) {
-        await this.save(source, snapshot.tree, snapshot.commit);
+        await this.save(source, snapshot.tree, snapshot.commit, snapshot.problems);
         throw new SyncError('unsupported', snapshot.problems[0]!);
       }
-      const logbook = inspect(snapshot.tree).logbook;
+      // fetched for this sync only, so it can take the changes directly
+      const logbook = snapshot.logbook;
       const added: Dive[] = [];
       const edited: Dive[] = [];
       let skipped = 0;
@@ -485,7 +505,7 @@ class Workspace {
       }
       const changes = edited.length + deleted.length + sites.length + new Set(trips).size;
       if (added.length === 0 && changes === 0) {
-        await this.save(source, snapshot.tree, snapshot.commit);
+        await this.save(source, snapshot.tree, snapshot.commit, []);
         await this.savePending([]);
         await this.saveEdits([]);
         await this.saveSiteEdits([]);
@@ -495,7 +515,7 @@ class Workspace {
       try {
         const message = commitMessageForChanges(logbook, added, edited, agent(), { sites, trips, deleted });
         const commit = await pushLogbook(env, remote, snapshot, logbook, commitInfo(remote, message));
-        await this.save(source, serializeLogbook(logbook), commit);
+        await this.save(source, serializeLogbook(logbook), commit, []);
         await this.savePending([]);
         await this.saveEdits([]);
         await this.saveSiteEdits([]);
@@ -526,9 +546,9 @@ class Workspace {
     const source = this.source;
     if (!source || !this.tree) throw new Error('No logbook');
     if (source.kind === 'local') {
-      const logbook = parseLogbook(this.tree).logbook;
+      const logbook = this.editable();
       const { added, skipped } = mergeDives(logbook, incoming);
-      await this.save(source, serializeLogbook(logbook), null);
+      await this.save(source, serializeLogbook(logbook), null, []);
       return { added, skipped: skipped.length };
     }
     return this.mergeIntoRemote(source, await this.secretFor(source), incoming, true);
@@ -549,15 +569,15 @@ class Workspace {
       const env = freshEnv();
       const snapshot = await fetchLogbook(env, remote);
       if (snapshot.problems.length > 0) throw new SyncError('unsupported', snapshot.problems[0]!);
-      const logbook = inspect(snapshot.tree).logbook;
+      const logbook = snapshot.logbook;
       const { added, skipped } = mergeDives(logbook, incoming);
       if (added.length === 0) {
-        if (isCurrent) await this.save(target, snapshot.tree, snapshot.commit);
+        if (isCurrent) await this.save(target, snapshot.tree, snapshot.commit, []);
         return { added, skipped: skipped.length };
       }
       try {
         const commit = await pushLogbook(env, remote, snapshot, logbook, commitInfo(remote, commitMessageForNewDives(logbook, added, agent())));
-        if (isCurrent) await this.save(target, serializeLogbook(logbook), commit);
+        if (isCurrent) await this.save(target, serializeLogbook(logbook), commit, []);
         return { added, skipped: skipped.length };
       } catch (error) {
         if (error instanceof SyncError && error.kind === 'conflict' && attempt < 2) continue;
@@ -585,7 +605,7 @@ class Workspace {
     const check = inspect(tree);
     if (check.problems.length > 0) throw new SyncError('unsupported', check.problems[0]!);
     if (source.kind === 'local') {
-      await this.save(source, tree, null);
+      await this.save(source, tree, null, []);
       return;
     }
     await requireProxy();
@@ -594,7 +614,7 @@ class Workspace {
     const env = freshEnv();
     const snapshot = await fetchLogbook(env, remote);
     const commit = await pushLogbook(env, remote, snapshot, check.logbook, commitInfo(remote, `Restore backup\n\nCreated by ${agent()}\n`));
-    await this.save(source, serializeLogbook(check.logbook), commit);
+    await this.save(source, serializeLogbook(check.logbook), commit, []);
   }
 }
 

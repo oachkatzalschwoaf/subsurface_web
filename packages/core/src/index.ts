@@ -25,6 +25,7 @@ export {
   applyTripEdit,
   changedDetails,
   detailsOf,
+  editableCopy,
   formatCoordinates,
   isEmptyEdit,
   mergeEdits,
