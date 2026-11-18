@@ -1,0 +1,32 @@
+# Tests, type check and build on every push and pull request. The tests that need private dive
+# data skip themselves here. apps/web/dist/ is committed (deployed by FTP), so the last step
+# fails when it was not rebuilt after a change.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - name: apps/web/dist is up to date
+        run: |
+          if [ -n "$(git status --porcelain -- apps/web/dist)" ]; then
+            git status --short -- apps/web/dist
+            echo "apps/web/dist differs from a fresh build: run npm run build and commit it."
+            exit 1
+          fi

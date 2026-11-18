@@ -93,6 +93,11 @@ npm run build
 Upload the contents of `apps/web/dist/` (including `.htaccess` and `git-proxy.php`) to a folder on
 your web space.
 
+- **The proxy is open to everyone who can open your installation.** It reaches only the
+  Subsurface cloud (and the hosts you list), but it does not limit requests: someone could use it
+  to try passwords against the cloud, which then sees your server's address. For an installation
+  only you use, protect the folder with a password (`.htaccess` / your host's settings).
+
 - **Own git server** (e.g. GitHub) besides the Subsurface cloud: copy `git-proxy.config.example.php`
   to `git-proxy.config.php` and list the host names. The proxy reaches no other servers. Every listed
   host is reachable through your proxy for anyone who can open your installation, so consider
