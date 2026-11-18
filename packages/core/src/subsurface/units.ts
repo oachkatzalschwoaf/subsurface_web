@@ -27,8 +27,26 @@ export function strtod(text: string): number {
   return m ? Number.parseFloat(m[0]) : 0;
 }
 
+const isDigit = (code: number) => code >= 48 && code <= 57;
+
+/**
+ * The unsigned digits of `text` from `start`: [value, end]; end === start when there are none.
+ * The fast path for the common case of plain digits; anything else goes to the regular
+ * expressions below, so the results stay exactly those of the C functions.
+ */
+function digits(text: string, start: number): [number, number] {
+  let value = 0;
+  let i = start;
+  while (i < text.length && isDigit(text.charCodeAt(i))) value = value * 10 + (text.charCodeAt(i++) - 48);
+  return [value, i];
+}
+
 /** C's atoi() */
 export function atoi(text: string): number {
+  if (text.length > 0 && text.length < 15 && isDigit(text.charCodeAt(0))) {
+    const [value, end] = digits(text, 0);
+    if (end === text.length) return value;
+  }
   const m = /^\s*[+-]?\d+/.exec(text);
   return m ? Number.parseInt(m[0], 10) : 0;
 }
@@ -88,6 +106,15 @@ export function formatFraction(permille: number): string {
 
 /** get_duration(): sscanf "%d:%d" */
 export function parseDuration(text: string): number {
+  // "m:ss" with plain digits, as in every sample line
+  if (text.length > 0 && text.length < 15 && isDigit(text.charCodeAt(0))) {
+    const [minutes, colon] = digits(text, 0);
+    if (colon === text.length) return minutes * 60;
+    if (text.charCodeAt(colon) === 58) {
+      const [seconds, end] = digits(text, colon + 1);
+      if (end === text.length && end > colon + 1) return minutes * 60 + seconds;
+    }
+  }
   const m = /^\s*([+-]?\d+)(?::([+-]?\d+))?/.exec(text);
   if (!m) return 0;
   return Number.parseInt(m[1]!, 10) * 60 + (m[2] ? Number.parseInt(m[2], 10) : 0);

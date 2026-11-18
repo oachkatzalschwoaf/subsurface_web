@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { quote, splitLines } from '../src/subsurface/text.ts';
-import { formatDegrees, formatMilli, lrint, parseDegrees, parseMilli, parseTemperature } from '../src/subsurface/units.ts';
+import { atoi, formatDegrees, formatMilli, lrint, parseDegrees, parseDuration, parseMilli, parseTemperature } from '../src/subsurface/units.ts';
 
 describe('formatMilli (put_milli)', () => {
   it.each([
@@ -33,6 +33,27 @@ describe('number parsing', () => {
     for (const text of ['47.906674', '-13.567017', '0.000001']) {
       expect(formatDegrees(parseDegrees(text))).toBe(text);
     }
+  });
+});
+
+describe('fast paths give the results of the C functions', () => {
+  it.each([
+    ['0:00', 0], ['1:05', 65], ['45', 2700], ['1:5', 65], ['12:05 min', 725], ['1:', 60], [' 2:30', 150],
+    ['-1:05', -55], ['+3', 180], ['x', 0], ['', 0], ['10:-5', 595], ['99999999999999999', 99999999999999999 * 60],
+  ])('parseDuration(%j) = %d', (text, value) => {
+    expect(parseDuration(text)).toBe(value);
+  });
+  it.each([['42', 42], ['007', 7], ['12x', 12], [' 7', 7], ['-3', -3], ['', 0], ['x1', 0]])('atoi(%j) = %d', (text, value) => {
+    expect(atoi(text)).toBe(value);
+  });
+  it('splits lines with and without strings alike', () => {
+    const { lines } = splitLines('  0:10 3.5m\nbuddy "A, B"\nnotes "two\nlines" x\n  0:20 4.0m');
+    expect(lines).toEqual([
+      { text: '  0:10 3.5m', strings: [] },
+      { text: 'buddy "', strings: ['A, B'] },
+      { text: 'notes " x', strings: ['two\nlines'] },
+      { text: '  0:20 4.0m', strings: [] },
+    ]);
   });
 });
 

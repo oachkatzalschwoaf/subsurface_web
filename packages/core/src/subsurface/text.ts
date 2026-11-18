@@ -78,11 +78,23 @@ export function splitLines(content: string): { lines: Line[]; skipped: string[] 
   const skipped: string[] = [];
   const end = content.length;
   let p = 0;
+  /** The next '"' at or after p (-1: none left), looked up again only once p has passed it */
+  let quote = content.indexOf('"');
   while (p < end) {
     const start = p;
     if (content[p] === '\n' || content[p] === '\t') {
       while (p < end && content[p++] !== '\n');
       skipped.push(content.slice(start, p));
+      continue;
+    }
+    // Most lines (all sample lines) have no string: take them in one piece. Building them
+    // character by character made ropes that cost much more to read later.
+    const newline = content.indexOf('\n', p);
+    const lineEnd = newline < 0 ? end : newline;
+    if (quote >= 0 && quote < p) quote = content.indexOf('"', p);
+    if (quote < 0 || quote > lineEnd) {
+      lines.push({ text: content.slice(p, lineEnd), strings: [] });
+      p = lineEnd + 1;
       continue;
     }
     let text = '';
