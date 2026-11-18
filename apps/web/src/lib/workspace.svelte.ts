@@ -18,15 +18,11 @@ import {
   pictureFileName,
   pictureOffset,
   commitMessageForNewDives,
-  fetchLogbook,
   flattenTree,
-  initRemote,
   inspect,
   mergeDives,
   newSettings,
   parseLogbook,
-  pushLogbook,
-  remoteHasBranch,
   serializeLogbook,
   serializeXml,
   SyncError,
@@ -47,10 +43,10 @@ import {
 } from '@topside/core';
 import { APP_NAME } from './brand.ts';
 import { dbDelete, dbGet, dbSet, persistStorage } from './db.ts';
+import { fetchLogbook, freshEnv, initRemote, pushLogbook, remoteHasBranch } from './git.ts';
 import { deleteMedia, loadMediaList, mediaBlob, saveMediaList, storeMedia, takenAt, type MediaItem } from './media.ts';
 import {
   credentialId,
-  freshEnv,
   isRemote,
   recallSecret,
   rememberSecret,
@@ -86,6 +82,9 @@ export interface ChangeResult {
   /** Number of changed dives that were uploaded */
   edited?: number;
 }
+
+/** Message of the SyncError thrown when the password prompt is cancelled. */
+export const NO_PASSWORD = 'No password given';
 
 /** The remote branch does not exist yet (new, empty repository). */
 export class EmptyRemoteError extends Error {}
@@ -289,7 +288,7 @@ class Workspace {
       if (recalled) return (this.secret = recalled);
     }
     const asked = await this.askSecret?.(sourceLabel(source));
-    if (!asked) throw new SyncError('auth', 'No password given');
+    if (!asked) throw new SyncError('auth', NO_PASSWORD);
     return asked;
   }
 
@@ -318,8 +317,8 @@ class Workspace {
   async connect(source: RemoteSource, secret: string): Promise<void> {
     await requireProxy();
     const remote = remoteFor(source, secret);
-    if (!(await remoteHasBranch(freshEnv(), remote))) throw new EmptyRemoteError();
-    const snapshot = await fetchLogbook(freshEnv(), remote);
+    if (!(await remoteHasBranch(await freshEnv(), remote))) throw new EmptyRemoteError();
+    const snapshot = await fetchLogbook(await freshEnv(), remote);
     this.accepted(secret);
     await this.save(source, snapshot.tree, snapshot.commit, snapshot.problems);
     await rememberSecret(credentialId(source), secret, sourceLabel(source));
@@ -329,7 +328,7 @@ class Workspace {
   async createRemote(source: RemoteSource, secret: string, logbook: Logbook): Promise<void> {
     await requireProxy();
     const remote = remoteFor(source, secret);
-    await initRemote(freshEnv(), remote, logbook, commitInfo(remote, `Start logbook\n\nCreated by ${agent()}\n`));
+    await initRemote(await freshEnv(), remote, logbook, commitInfo(remote, `Start logbook\n\nCreated by ${agent()}\n`));
     await this.connect(source, secret);
   }
 
@@ -577,7 +576,7 @@ class Workspace {
     const secret = await this.secretFor(source);
     const remote = remoteFor(source, secret);
     for (let attempt = 1; ; attempt++) {
-      const env = freshEnv();
+      const env = await freshEnv();
       const snapshot = await fetchLogbook(env, remote);
       this.accepted(secret);
       if (snapshot.problems.length > 0) {
@@ -677,7 +676,7 @@ class Workspace {
     await requireProxy();
     const remote = remoteFor(target, secret);
     for (let attempt = 1; ; attempt++) {
-      const env = freshEnv();
+      const env = await freshEnv();
       const snapshot = await fetchLogbook(env, remote);
       if (snapshot.problems.length > 0) throw new SyncError('unsupported', snapshot.problems[0]!);
       const logbook = snapshot.logbook;
@@ -703,7 +702,7 @@ class Workspace {
     if (!view) throw new Error('No logbook');
     await requireProxy();
     const remote = remoteFor(target, secret);
-    await initRemote(freshEnv(), remote, view.logbook, commitInfo(remote, `Copy of ${this.label}\n\nCreated by ${agent()}\n`));
+    await initRemote(await freshEnv(), remote, view.logbook, commitInfo(remote, `Copy of ${this.label}\n\nCreated by ${agent()}\n`));
   }
 
   /**
@@ -723,7 +722,7 @@ class Workspace {
       await requireProxy();
       const secret = await this.secretFor(source);
       const remote = remoteFor(source, secret);
-      const env = freshEnv();
+      const env = await freshEnv();
       const snapshot = await fetchLogbook(env, remote);
       this.accepted(secret);
       const commit = await pushLogbook(env, remote, snapshot, check.logbook, commitInfo(remote, `Restore backup\n\nCreated by ${agent()}\n`));

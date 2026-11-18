@@ -5,6 +5,7 @@
   "license": "GPL-2.0-only",
   "description": "Subsurface git storage format and Garmin FIT import, without DOM dependencies",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },

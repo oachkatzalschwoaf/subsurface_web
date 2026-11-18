@@ -20,6 +20,7 @@ npx vitest run -t "round trip"                 # tests whose name matches
 npm run typecheck                              # tsc for core + svelte-check for the web app; must be 0 errors
 npm run dev                                    # app on http://localhost:5173 with a built-in git proxy
 npm run build                                  # -> apps/web/dist/ (static files + git-proxy.php + .htaccess)
+npm run preview -w apps/web                    # the build on http://localhost:4173, with the same git proxy as dev
 node scripts/check-login.ts <email> [server]   # read-only cloud login check, asks for the password hidden
 ```
 
@@ -79,7 +80,9 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   compressibility, salinity, surface pressure); the XML export writes `sac` like Subsurface.
   `app/stats.ts` — logbook statistics and the dive search.
 - `sync/sync.ts` — isomorphic-git on objects only (no checkout). `fetchLogbook` clones the branch
-  tip only (`depth: 1`; the whole history if the server cannot) and reads the tree; `inspect()` refuses writing (returns `problems`) unless the tree round-trips exactly;
+  tip only (`depth: 1`; the whole history if the server cannot) and reads the tree;
+  `inspect()` (`subsurface/inspect.ts`) refuses writing (returns `problems`) unless the tree
+  round-trips exactly; `SyncError` is in `sync/errors.ts`, so neither needs isomorphic-git;
   `pushLogbook` commits on top of the fetched commit and never force-pushes (a moved remote is a
   `conflict`). `withHeadSymref` works around the Subsurface cloud advertising no `HEAD`, which
   isomorphic-git otherwise rejects. `initRemote` fills an empty branch. `memory-fs.ts` is the
@@ -99,6 +102,11 @@ With a lower-case one every suite fails with "Cannot read properties of undefine
   synced dive only drops its draft.
 - `lib/sources.ts` — cloud / own git / local sources, `remoteFor()` builds the remote incl. the
   proxy URL, password-manager helpers. Secrets stay in memory; nothing writes them to storage.
+- `lib/git.ts` — the sync functions of core, loaded on first use from `lib/git-load.ts`
+  (isomorphic-git, Buffer polyfill, in-memory fs), so they stay out of the start bundle. Never
+  import `fetchLogbook` and the like from `@topside/core` in the web app directly; core is marked
+  `sideEffects: false` so the bundler can leave the sync code out. The share editor, map and
+  statistics pages are loaded with `import()` as well.
 - `components/` — `DiveChart` draws depth/temperature/heart rate as separate panels on one time
   axis (no dual axes). `DetailsFields` is the one form for new dives, notes and edits. Routing is
   hash-based (`#/dive/<when>`, `#/edit/<when>`, `#/share/<when>`, `#/site/<uuid>`,

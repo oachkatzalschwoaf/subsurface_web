@@ -11,10 +11,11 @@
  *   fetches again and repeats the change.
  */
 import git, { type FsClient, type HttpClient, type TreeEntry } from 'isomorphic-git';
+import { inspect } from '../subsurface/inspect.ts';
 import type { Logbook } from '../subsurface/model.ts';
-import { parseLogbook } from '../subsurface/parse.ts';
 import { serializeLogbook } from '../subsurface/serialize.ts';
-import { flattenTree, isTree, type GitTree } from '../subsurface/tree.ts';
+import { isTree, type GitTree } from '../subsurface/tree.ts';
+import { SyncError } from './errors.ts';
 
 export interface Remote {
   /** Repository URL, e.g. https://ssrf-cloud-u2.subsurface-divelog.org/git/user@example.org */
@@ -41,17 +42,6 @@ export interface Snapshot {
   logbook: Logbook;
   /** Why Topside must not write this logbook. Empty when writing is safe. */
   problems: string[];
-}
-
-/** 'internal': not a problem of the server or the connection, e.g. a logbook Topside cannot write. */
-export type SyncErrorKind = 'auth' | 'not-found' | 'conflict' | 'unsupported' | 'network' | 'internal';
-
-export class SyncError extends Error {
-  readonly kind: SyncErrorKind;
-  constructor(kind: SyncErrorKind, message: string) {
-    super(message);
-    this.kind = kind;
-  }
 }
 
 function classify(error: unknown): SyncError {
@@ -191,22 +181,6 @@ export async function fetchLogbook(env: GitEnv, remote: Remote): Promise<Snapsho
   } catch (error) {
     throw classify(error);
   }
-}
-
-/** Parse a tree and check that writing it back reproduces it exactly. */
-export function inspect(tree: GitTree): { logbook: Logbook; problems: string[] } {
-  const { logbook, warnings } = parseLogbook(tree);
-  const problems = [...warnings];
-  if (logbook.settings.version !== 3) problems.push(`Unsupported data format version ${logbook.settings.version}`);
-  if (problems.length === 0) {
-    const before = flattenTree(tree);
-    // serializeLogbook() leaves its argument unchanged (tested), so the parsed logbook is reused
-    const after = flattenTree(serializeLogbook(logbook));
-    for (const path of new Set([...before.keys(), ...after.keys()])) {
-      if (before.get(path) !== after.get(path)) problems.push(`${path}: cannot be reproduced exactly`);
-    }
-  }
-  return { logbook, problems };
 }
 
 async function readTree(env: GitEnv, oid: string): Promise<GitTree> {

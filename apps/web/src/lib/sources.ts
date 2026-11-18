@@ -1,8 +1,7 @@
 /**
  * Where a logbook lives: the Subsurface cloud, an own git repository, or only this device.
  */
-import { createMemoryFs, SyncError, type GitEnv, type Remote } from '@topside/core';
-import http from 'isomorphic-git/http/web';
+import { SyncError, type Remote } from '@topside/core';
 
 export const DEFAULT_SERVER = 'https://ssrf-cloud-u2.subsurface-divelog.org';
 
@@ -61,11 +60,6 @@ export function remoteFor(source: RemoteSource, secret: string): Remote {
     password: secret,
     corsProxy: proxyBase(),
   };
-}
-
-/** A fresh repository in memory for each operation. */
-export function freshEnv(): GitEnv {
-  return { fs: createMemoryFs(), http, dir: '/repo' };
 }
 
 /** Thrown when git-proxy.php is not running, e.g. the page is served without PHP. */

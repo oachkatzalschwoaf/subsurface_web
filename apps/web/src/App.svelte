@@ -10,15 +10,18 @@
   import EditSite from './components/EditSite.svelte';
   import EditTrip from './components/EditTrip.svelte';
   import InstallHint from './components/InstallHint.svelte';
-  import MapPage from './components/MapPage.svelte';
   import Setup from './components/Setup.svelte';
-  import ShareCard from './components/ShareCard.svelte';
-  import StatsPage from './components/StatsPage.svelte';
   import { APP_NAME } from './lib/brand.ts';
   import { lang, locale, onLanguageChange, t } from './lib/i18n.ts';
   import { overlay } from './lib/overlay.ts';
   import { isRemote, ProxyMissingError } from './lib/sources.ts';
-  import { workspace } from './lib/workspace.svelte.ts';
+  import { NO_PASSWORD, workspace } from './lib/workspace.svelte.ts';
+
+  // Pages most visits do not open load when needed: the share editor with its fonts, the map with
+  // Leaflet's styles, the statistics. The service worker keeps them for offline use.
+  const loadShareCard = () => import('./components/ShareCard.svelte');
+  const loadMapPage = () => import('./components/MapPage.svelte');
+  const loadStatsPage = () => import('./components/StatsPage.svelte');
 
   /** Operations in progress; several can overlap (adding pictures while a sync runs). */
   let running = $state(0);
@@ -131,6 +134,8 @@
   function message(e: unknown): string {
     if (e instanceof ProxyMissingError) return t.errorProxy;
     if (e instanceof SyncError) {
+      // the password prompt was cancelled: nothing to report
+      if (e.kind === 'auth' && e.message === NO_PASSWORD) return '';
       if (e.kind === 'auth') return t.errorAuth;
       if (e.kind === 'not-found') return `${t.errorNotFound} (${e.message})`;
       if (e.kind === 'conflict') return `${t.errorConflict} (${e.message})`;
@@ -306,7 +311,7 @@
   {:else if logbook && shareDive}
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.shareTitle}</h2>
-    <ShareCard {logbook} dive={shareDive} />
+    {#await loadShareCard() then { default: ShareCard }}<ShareCard {logbook} dive={shareDive} />{/await}
   {:else if logbook && editingTrip}
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.tripEditTitle}</h2>
@@ -316,11 +321,11 @@
   {:else if logbook && showStats}
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.stats}</h2>
-    <StatsPage {logbook} onOpen={openDive} />
+    {#await loadStatsPage() then { default: StatsPage }}<StatsPage {logbook} onOpen={openDive} />{/await}
   {:else if logbook && showMap}
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.map}</h2>
-    <MapPage {logbook} />
+    {#await loadMapPage() then { default: MapPage }}<MapPage {logbook} />{/await}
   {:else if logbook && editingSite}
     <button class="link back" onclick={() => history.back()}>← {t.back}</button>
     <h2>{t.siteEditTitle}</h2>
