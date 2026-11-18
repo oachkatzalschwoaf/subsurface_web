@@ -5,6 +5,7 @@
    */
   import type { Dive, Picture } from '@topside/core';
   import { t } from '../lib/i18n.ts';
+  import { overlay } from '../lib/overlay.ts';
   import { workspace } from '../lib/workspace.svelte.ts';
 
   let {
@@ -104,7 +105,7 @@
 {/if}
 
 {#if open}
-  <div class="viewer" role="dialog" aria-modal="true" aria-label={shortName(open.picture.filename)}>
+  <dialog class="viewer" use:overlay={close} aria-label={shortName(open.picture.filename)}>
     {#if open.url}
       <img src={open.url} alt={shortName(open.picture.filename)} />
     {:else}
@@ -113,9 +114,11 @@
     <div class="bar">
       <span>{label(open.picture)}</span>
       {#if onChange}<button class="link" onclick={() => open && remove(open.picture)}>{t.pictureRemove}</button>{/if}
-      <button class="primary" onclick={close}>{t.close}</button>
+      <!-- the dialog focuses its first button otherwise, which would be "Remove" -->
+      <!-- svelte-ignore a11y_autofocus -->
+      <button class="primary" onclick={close} autofocus>{t.close}</button>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
@@ -176,7 +179,13 @@
   .viewer {
     position: fixed;
     inset: 0;
-    z-index: 30;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    color: inherit;
     background: rgb(0 0 0 / 92%);
     display: flex;
     flex-direction: column;

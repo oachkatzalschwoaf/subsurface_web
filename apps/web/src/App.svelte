@@ -16,6 +16,7 @@
   import StatsPage from './components/StatsPage.svelte';
   import { APP_NAME } from './lib/brand.ts';
   import { lang, locale, onLanguageChange, t } from './lib/i18n.ts';
+  import { overlay } from './lib/overlay.ts';
   import { isRemote, ProxyMissingError } from './lib/sources.ts';
   import { workspace } from './lib/workspace.svelte.ts';
 
@@ -366,7 +367,7 @@
 </div>
 
 {#if secretRequest}
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="secret-title">
+  <dialog class="modal" use:overlay={() => answerSecret(null)} aria-labelledby="secret-title">
     <form
       class="card"
       onsubmit={(e) => {
@@ -383,7 +384,7 @@
         <button class="primary">{t.ok}</button>
       </div>
     </form>
-  </div>
+  </dialog>
 {/if}
 {/key}
 
@@ -490,6 +491,13 @@
   .modal {
     position: fixed;
     inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    color: inherit;
     background: rgb(0 0 0 / 50%);
     display: flex;
     align-items: center;
