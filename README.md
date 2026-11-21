@@ -8,6 +8,10 @@ Installable as an app, works offline. No PC needed.
 see [Using a hosted installation](#using-a-hosted-installation)).
 
 <p>
+  <img src="docs/images/logbook.png" alt="Logbook on a wide screen: dive list next to the dive with its profile" width="800" />
+</p>
+
+<p>
   <img src="docs/images/dive.png" alt="Dive page with depth profile" width="260" />
   <img src="docs/images/share-photo.png" alt="Share image over an underwater photo" width="260" />
   <img src="docs/images/share-photo-2.png" alt="Share image with Bebas Neue font" width="260" />
