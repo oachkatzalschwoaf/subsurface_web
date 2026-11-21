@@ -145,11 +145,64 @@ export interface GraphOptions {
   hr: boolean;
 }
 
+/** Symbols in front of the numbers. */
+export type IconId = 'depth' | 'meanDepth' | 'time' | 'heart' | 'temp' | 'pressure' | 'tank' | 'bubbles';
+
+/**
+ * The symbols as SVG path data on a 24 × 24 grid, drawn as round-ended lines, with the left and
+ * right end of each drawing; vertically each fills about 3–21. Own drawings.
+ */
+const ICONS: Record<IconId, { path: string; left: number; right: number }> = {
+  // arrow down onto a line
+  depth: { path: 'M12 3V15M6.5 9.5L12 15L17.5 9.5M4 20.5H20', left: 4, right: 20 },
+  // arrow down onto a dashed line
+  meanDepth: { path: 'M12 3V14M7 9L12 14L17 9M3 20H6.5M10.25 20H13.75M17.5 20H21', left: 3, right: 21 },
+  // clock
+  time: { path: 'M21 12A9 9 0 1 1 3 12A9 9 0 1 1 21 12ZM12 7V12L15.5 14', left: 3, right: 21 },
+  heart: {
+    path: 'M12 20.5C5.5 16 2.5 12.5 2.5 8.7C2.5 5.8 4.7 3.5 7.5 3.5C9.4 3.5 11 4.5 12 6.2C13 4.5 14.6 3.5 16.5 3.5C19.3 3.5 21.5 5.8 21.5 8.7C21.5 12.5 18.5 16 12 20.5Z',
+    left: 2.5,
+    right: 21.5,
+  },
+  // thermometer with a scale
+  temp: { path: 'M8 13.5V5A2 2 0 0 1 12 5V13.5A4 4 0 1 1 8 13.5ZM10 9V17M16 5H19M16 9H19M16 13H19', left: 6, right: 19 },
+  // pressure gauge
+  pressure: { path: 'M4.2 18A9 9 0 1 1 19.8 18M12 13.5L16 8.5M13.2 13.5A1.2 1.2 0 1 1 10.8 13.5A1.2 1.2 0 1 1 13.2 13.5', left: 3, right: 21 },
+  // cylinder with valve
+  tank: { path: 'M8 21V9A4 4 0 0 1 16 9V21ZM12 5V3M9.5 3H14.5M8 12.5H16', left: 8, right: 16 },
+  // air bubbles
+  bubbles: {
+    path: 'M13.5 15.5A4.5 4.5 0 1 1 4.5 15.5A4.5 4.5 0 1 1 13.5 15.5ZM19.5 8.5A3 3 0 1 1 13.5 8.5A3 3 0 1 1 19.5 8.5ZM11 4.5A1.75 1.75 0 1 1 7.5 4.5A1.75 1.75 0 1 1 11 4.5Z',
+    left: 4.5,
+    right: 19.5,
+  },
+};
+const iconCache = new Map<IconId, Path2D>();
+
+/** Width of a symbol drawn `size` pixels tall. */
+const iconWidth = (icon: IconId, size: number) => ((ICONS[icon].right - ICONS[icon].left) / 18) * size;
+
+/** Draws a symbol `size` pixels tall (3–21 of the grid) with its left end at x and its top at `top`. */
+function drawIcon(ctx: CanvasRenderingContext2D, icon: IconId, x: number, top: number, size: number, color: string): void {
+  let path = iconCache.get(icon);
+  if (!path) iconCache.set(icon, (path = new Path2D(ICONS[icon].path)));
+  const scale = size / 18;
+  ctx.save();
+  ctx.translate(x - ICONS[icon].left * scale, top - 3 * scale);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke(path);
+  ctx.restore();
+}
+
 export interface ShareContent {
   points: Point[];
   title: string;
   subtitle: string;
-  stats: { id: string; label: string; value: string }[];
+  stats: { id: string; label: string; value: string; icon?: IconId }[];
   footer: string;
   /** formats a depth in metres for labels, e.g. "14,9 m" */
   depth: (m: number) => string;
@@ -168,6 +221,8 @@ export interface ShareStyle {
   theme: ThemeId;
   /** white (the theme's text colour), dark, or the theme's line colour */
   textColor: TextColor;
+  /** symbols in front of the numbers */
+  icons: boolean;
   layout: Layout;
   graph: GraphOptions;
 }
@@ -241,9 +296,10 @@ export function renderShare(canvas: HTMLCanvasElement, content: ShareContent, st
     rects.subtitle = { x, y, w: Math.max(ctx.measureText(content.subtitle).width, 60 * u), h: size * 1.35 };
   }
 
-  for (const stat of content.stats) {
+  const statBoxes = content.stats.map((stat) => place(statBlock(stat.id)));
+  content.stats.forEach((stat, i) => {
     const id = statBlock(stat.id);
-    const box = place(id);
+    const box = statBoxes[i]!;
     const x = box.x * W;
     const y = box.y * H;
     ctx.font = plain(700, 26 * k);
@@ -253,10 +309,34 @@ export function renderShare(canvas: HTMLCanvasElement, content: ShareContent, st
     ctx.globalAlpha = 1;
     const labelW = ctx.measureText(label).width;
     const value = shown(stat.value);
-    fit(ctx, value, display, 72 * k, Math.max(W - x - pad / 2, 120 * u), 24 * u);
-    ctx.fillText(value, x, y + 110 * k);
-    rects[id] = { x, y, w: Math.max(labelW, ctx.measureText(value).width, 60 * u), h: 130 * k };
-  }
+    // The number ends before the next number on the same line to its right, or near the edge of
+    // the image. Blocks moved on top of each other by hand are left as they are.
+    let room = W - x - pad / 2;
+    for (const other of statBoxes) {
+      const dx = (other.x - box.x) * W;
+      if (dx > 160 * u && Math.abs(other.y - box.y) * H < 70 * k) room = Math.min(room, dx - 24 * u);
+    }
+    room = Math.max(room, 120 * u);
+    // The symbol is as tall as the number's digits and stands in front of it.
+    const icon = style.icons ? stat.icon : undefined;
+    const measure = () => {
+      const m = ctx.measureText(value);
+      const height = m.actualBoundingBoxAscent || ctx.measureText('0').actualBoundingBoxAscent;
+      return { width: m.width, height, gap: icon ? iconWidth(icon, height) + height * 0.3 : 0 };
+    };
+    let size = 72 * k;
+    ctx.font = display(size);
+    let m = measure();
+    while (size > 24 * u && m.width + m.gap > room) {
+      size -= 2;
+      ctx.font = display(size);
+      m = measure();
+    }
+    const baseline = y + 110 * k;
+    if (icon) drawIcon(ctx, icon, x, baseline - m.height, m.height, theme.text);
+    ctx.fillText(value, x + m.gap, baseline);
+    rects[id] = { x, y, w: Math.max(labelW, m.gap + m.width, 60 * u), h: 130 * k };
+  });
 
   if (style.graph.show && content.points.length > 1) {
     const box = place('graph');
@@ -404,8 +484,11 @@ function drawGraph(ctx: CanvasRenderingContext2D, r: Rect, content: ShareContent
     ctx.font = `800 ${34 * k}px ${SYSTEM}`;
     const label = content.depth(deepest.depth);
     const w = ctx.measureText(label).width;
-    // Below the dot, or above it when temperature or heart-rate bands follow underneath
-    ctx.fillText(label, Math.min(Math.max(dx - w / 2, left), left + width - w), bands.length ? dy - 26 * u : dy + 52 * k);
+    // Below the dot, or above it when temperature or heart-rate bands follow underneath or the
+    // image ends there
+    const below = dy + 52 * k;
+    const above = bands.length > 0 || below > ctx.canvas.height - 8 * u;
+    ctx.fillText(label, Math.min(Math.max(dx - w / 2, left), left + width - w), above ? dy - 26 * u : below);
   }
   ctx.shadowBlur = 0;
 

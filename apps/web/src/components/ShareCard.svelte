@@ -27,6 +27,7 @@
     type BlockId,
     type FontId,
     type GraphOptions,
+    type IconId,
     type Layout,
     type Rect,
     type ShareBackground,
@@ -51,6 +52,8 @@
     fontScale: number;
     theme: ThemeId;
     textColor: TextColor;
+    /** symbols in front of the numbers */
+    icons: boolean;
     stats: string[];
     showSite: boolean;
     showDate: boolean;
@@ -75,6 +78,7 @@
     fontScale: 1,
     theme: 'ocean',
     textColor: 'white',
+    icons: true,
     stats: defaultStats,
     showSite: true,
     showDate: true,
@@ -151,28 +155,28 @@
   const available = $derived.by(() => {
     const hrs = allPoints.filter((p) => p.hr !== null).map((p) => p.hr!);
     const cyl = dive.cylinders[0];
-    const out: { id: string; label: string; value: string }[] = [
-      { id: 'duration', label: t.statDuration, value: `${Math.round(info.duration / 60)} min` },
-      { id: 'maxDepth', label: t.statMaxDepth, value: `${one.format(info.maxDepth)} m` },
+    const out: { id: string; label: string; value: string; icon: IconId }[] = [
+      { id: 'duration', label: t.statDuration, value: `${Math.round(info.duration / 60)} min`, icon: 'time' },
+      { id: 'maxDepth', label: t.statMaxDepth, value: `${one.format(info.maxDepth)} m`, icon: 'depth' },
     ];
-    if (info.meanDepth !== null) out.push({ id: 'meanDepth', label: t.statMeanDepth, value: `${one.format(info.meanDepth)} m` });
-    if (info.waterTemp !== null) out.push({ id: 'water', label: t.statWater, value: `${Math.round(info.waterTemp)} °C` });
+    if (info.meanDepth !== null) out.push({ id: 'meanDepth', label: t.statMeanDepth, value: `${one.format(info.meanDepth)} m`, icon: 'meanDepth' });
+    if (info.waterTemp !== null) out.push({ id: 'water', label: t.statWater, value: `${Math.round(info.waterTemp)} °C`, icon: 'temp' });
     const temps = allPoints.filter((p) => p.temp !== null).map((p) => p.temp!);
     if (temps.length > 1) {
-      out.push({ id: 'tempMin', label: t.statTempMin, value: `${one.format(Math.min(...temps))} °C` });
-      out.push({ id: 'tempAvg', label: t.statTempAvg, value: `${one.format(temps.reduce((a, b) => a + b, 0) / temps.length)} °C` });
+      out.push({ id: 'tempMin', label: t.statTempMin, value: `${one.format(Math.min(...temps))} °C`, icon: 'temp' });
+      out.push({ id: 'tempAvg', label: t.statTempAvg, value: `${one.format(temps.reduce((a, b) => a + b, 0) / temps.length)} °C`, icon: 'temp' });
     }
     if (hrs.length) {
-      out.push({ id: 'avgHr', label: t.statAvgHr, value: `${Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length)} bpm` });
-      out.push({ id: 'maxHr', label: t.statMaxHr, value: `${Math.max(...hrs)} bpm` });
+      out.push({ id: 'avgHr', label: t.statAvgHr, value: `${Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length)} bpm`, icon: 'heart' });
+      out.push({ id: 'maxHr', label: t.statMaxHr, value: `${Math.max(...hrs)} bpm`, icon: 'heart' });
     }
     if (cyl?.start && cyl.end) {
-      out.push({ id: 'pressure', label: t.statPressure, value: `${Math.round(cyl.start / 1000)}–${Math.round(cyl.end / 1000)} bar` });
+      out.push({ id: 'pressure', label: t.statPressure, value: `${Math.round(cyl.start / 1000)}–${Math.round(cyl.end / 1000)} bar`, icon: 'pressure' });
       // Surface air consumption, computed as Subsurface does
       const sac = sacRate(dive);
-      if (sac) out.push({ id: 'sac', label: t.statSac, value: `${one.format(sac / 1000)} l/min` });
+      if (sac) out.push({ id: 'sac', label: t.statSac, value: `${one.format(sac / 1000)} l/min`, icon: 'bubbles' });
     }
-    if (cyl) out.push({ id: 'gas', label: t.statGas, value: !cyl.o2 ? t.gasAir : `EAN${Math.round(cyl.o2 / 10)}` });
+    if (cyl) out.push({ id: 'gas', label: t.statGas, value: !cyl.o2 ? t.gasAir : `EAN${Math.round(cyl.o2 / 10)}`, icon: 'tank' });
     return out;
   });
   const hasTemp = $derived(allPoints.filter((p) => p.temp !== null).length > 1);
@@ -612,6 +616,7 @@
   </div>
   <div class="chips">
     <button class="chip" aria-pressed={s.italic} onclick={() => (s.italic = !s.italic)}><i>{t.italic}</i></button>
+    <button class="chip" aria-pressed={s.icons} onclick={() => (s.icons = !s.icons)}>{t.showIcons}</button>
   </div>
 </section>
 </div>

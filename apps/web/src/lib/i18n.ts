@@ -310,6 +310,7 @@ const en = {
   // share image, more options
   fontSize: 'Text size',
   italic: 'Italic',
+  showIcons: 'Icons',
   themeCoral: 'Coral',
   themeSunset: 'Sunset',
   themeLava: 'Lava',
@@ -646,6 +647,7 @@ const de: Strings = {
   // share image, more options
   fontSize: 'Schriftgröße',
   italic: 'Kursiv',
+  showIcons: 'Symbole',
   themeCoral: 'Koralle',
   themeSunset: 'Sonnenuntergang',
   themeLava: 'Lava',
